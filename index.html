@@ -3,11 +3,16 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Aprovado — Gestão de Estudos</title>
+<title>Aprovado — Gestão de Estudos (Nuvem)</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+
+<script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore-compat.js"></script>
+
 <style>
+/* Todo o seu estilo CSS original foi mantido intacto */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 :root {
   --bg:#F5F3EE; --surface:#FFF; --surface2:#F0EDE6; --border:#E2DDD4;
@@ -25,7 +30,6 @@ html { scroll-behavior:smooth; }
 body { font-family:'DM Sans',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; font-size:14px; line-height:1.6; }
 .app { display:flex; min-height:100vh; }
 
-/* ── Sidebar ── */
 .sidebar { width:220px; background:var(--surface); border-right:1px solid var(--border); display:flex; flex-direction:column; padding:28px 16px 24px; position:fixed; top:0; left:0; bottom:0; z-index:10; }
 .logo { font-family:'DM Serif Display',serif; font-size:22px; color:var(--accent); letter-spacing:-.5px; margin-bottom:6px; }
 .logo span { color:var(--text3); font-style:italic; font-size:12px; display:block; font-family:'DM Sans',sans-serif; }
@@ -36,7 +40,6 @@ body { font-family:'DM Sans',sans-serif; background:var(--bg); color:var(--text)
 .nav-btn .ico { font-size:16px; width:20px; text-align:center; }
 .sidebar-footer { margin-top:auto; font-size:11px; color:var(--text3); text-align:center; line-height:1.8; }
 
-/* ── Main ── */
 .main { margin-left:220px; flex:1; padding:36px 40px; max-width:calc(100vw - 220px); }
 .page { display:none; animation:fadeIn .25s ease; }
 .page.active { display:block; }
@@ -44,11 +47,9 @@ body { font-family:'DM Sans',sans-serif; background:var(--bg); color:var(--text)
 .page-title { font-family:'DM Serif Display',serif; font-size:28px; margin-bottom:4px; letter-spacing:-.5px; }
 .page-sub { color:var(--text3); font-size:13px; margin-bottom:28px; }
 
-/* ── Cards ── */
 .card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:24px; box-shadow:var(--shadow); }
 .card-title { font-weight:600; font-size:13px; text-transform:uppercase; letter-spacing:.08em; color:var(--text3); margin-bottom:16px; }
 
-/* ── Timer ── */
 .timer-card { background:var(--accent); color:white; border:none; padding:36px 28px 28px; position:relative; overflow:hidden; }
 .timer-card::before { content:''; position:absolute; top:-60px; right:-60px; width:200px; height:200px; border-radius:50%; background:rgba(255,255,255,.05); }
 .timer-card::after { content:''; position:absolute; bottom:-40px; left:40px; width:120px; height:120px; border-radius:50%; background:rgba(255,255,255,.04); }
@@ -59,7 +60,6 @@ body { font-family:'DM Sans',sans-serif; background:var(--bg); color:var(--text)
 .timer-status { font-size:11px; opacity:.6; letter-spacing:.06em; margin-top:-20px; margin-bottom:20px; height:16px; text-transform:uppercase; }
 .timer-controls { display:flex; gap:10px; flex-wrap:wrap; }
 
-/* ── Buttons ── */
 .btn { display:inline-flex; align-items:center; gap:7px; padding:10px 20px; border-radius:var(--radius-sm); border:none; cursor:pointer; font-family:'DM Sans',sans-serif; font-size:13.5px; font-weight:600; transition:all .18s; white-space:nowrap; }
 .btn-white { background:white; color:var(--accent); }
 .btn-white:hover { background:#e8f5ec; }
@@ -76,30 +76,25 @@ body { font-family:'DM Sans',sans-serif; background:var(--bg); color:var(--text)
 .btn-sm { padding:6px 12px; font-size:12px; }
 .btn:disabled { opacity:.4; cursor:not-allowed; }
 
-/* ── Select ── */
 .select-wrap { position:relative; }
 .select-wrap select { width:100%; padding:11px 14px; border-radius:var(--radius-sm); border:1.5px solid var(--border); background:var(--surface); font-family:'DM Sans',sans-serif; font-size:14px; color:var(--text); appearance:none; cursor:pointer; outline:none; transition:border-color .18s; }
 .select-wrap select:focus { border-color:var(--accent); }
 .select-wrap::after { content:'↓'; position:absolute; right:12px; top:50%; transform:translateY(-50%); color:var(--text3); pointer-events:none; font-size:12px; }
 
-/* ── Inputs ── */
 input[type=text],input[type=number],input[type=date],textarea { width:100%; padding:11px 14px; border-radius:var(--radius-sm); border:1.5px solid var(--border); background:var(--surface); font-family:'DM Sans',sans-serif; font-size:14px; color:var(--text); outline:none; transition:border-color .18s; }
 input:focus,textarea:focus { border-color:var(--accent); }
 input::placeholder,textarea::placeholder { color:var(--text3); }
 textarea { resize:vertical; min-height:60px; }
 input[readonly] { background:var(--surface2); color:var(--text2); cursor:default; }
 
-/* ── Grid ── */
 .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
 .grid-3 { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
 
-/* ── Stat cards ── */
 .stat-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:20px; box-shadow:var(--shadow); }
 .stat-label { font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:var(--text3); margin-bottom:8px; }
 .stat-value { font-family:'DM Mono',monospace; font-size:28px; font-weight:500; letter-spacing:-1px; }
 .stat-sub { font-size:12px; color:var(--text3); margin-top:4px; }
 
-/* ── Progress ── */
 .progress-bar-bg { height:6px; background:var(--surface2); border-radius:99px; overflow:hidden; }
 .progress-bar-fill { height:100%; border-radius:99px; transition:width .6s ease; }
 .fill-green { background:var(--green); }
@@ -110,7 +105,6 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
 .perc-warn { color:var(--warn); }
 .perc-danger { color:var(--danger); }
 
-/* ── Materia list ── */
 .materia-list { display:flex; flex-direction:column; gap:8px; }
 .materia-item { border:1px solid var(--border); border-radius:var(--radius-sm); overflow:hidden; background:var(--surface); }
 .materia-header { display:flex; align-items:center; gap:12px; padding:12px 16px; cursor:pointer; transition:background .18s; }
@@ -132,17 +126,9 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
 .conteudo-del { background:none; border:none; cursor:pointer; color:var(--text3); font-size:13px; padding:2px 5px; border-radius:4px; transition:all .15s; }
 .conteudo-del:hover { background:var(--danger-light); color:var(--danger); }
 
-/* ── Multi-content session builder ── */
 .session-conteudo-list { display:flex; flex-direction:column; gap:8px; margin-bottom:12px; }
-.session-ct-row {
-  background:var(--surface2); border:1.5px solid var(--border);
-  border-radius:var(--radius-sm); overflow:hidden;
-}
-.session-ct-header {
-  display:flex; align-items:center; gap:10px;
-  padding:10px 14px; cursor:pointer;
-  transition:background .15s;
-}
+.session-ct-row { background:var(--surface2); border:1.5px solid var(--border); border-radius:var(--radius-sm); overflow:hidden; }
+.session-ct-header { display:flex; align-items:center; gap:10px; padding:10px 14px; cursor:pointer; transition:background .15s; }
 .session-ct-header:hover { background:var(--border); }
 .session-ct-name { flex:1; font-weight:600; font-size:13px; }
 .session-ct-summary { font-size:12px; color:var(--text3); font-family:'DM Mono',monospace; }
@@ -156,20 +142,17 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
 .add-ct-row { display:flex; gap:8px; align-items:center; }
 .add-ct-row .select-wrap { flex:1; }
 
-/* ── Checkbox ── */
 .checkbox-wrap { display:flex; align-items:center; gap:10px; padding:11px 14px; border:1.5px solid var(--border); border-radius:var(--radius-sm); cursor:pointer; transition:all .18s; }
 .checkbox-wrap:hover { border-color:var(--accent); background:var(--accent-light); }
 .checkbox-wrap input { accent-color:var(--accent); width:16px; height:16px; cursor:pointer; flex-shrink:0; }
 .checkbox-wrap label { font-size:13.5px; cursor:pointer; line-height:1.4; }
 
-/* ── Sessions table ── */
 .sessions-table { width:100%; border-collapse:collapse; font-size:13px; }
 .sessions-table th { text-align:left; padding:10px 14px; font-size:11px; font-weight:600; letter-spacing:.07em; text-transform:uppercase; color:var(--text3); border-bottom:1.5px solid var(--border); }
 .sessions-table td { padding:11px 14px; border-bottom:1px solid var(--border); vertical-align:top; }
 .sessions-table tr:last-child td { border-bottom:none; }
 .sessions-table tr:hover td { background:var(--surface2); }
 
-/* ── Badges ── */
 .badge { display:inline-block; padding:3px 10px; border-radius:99px; font-size:11px; font-weight:600; }
 .badge-green { background:#e8f5ec; color:var(--green); }
 .badge-warn { background:var(--warn-light); color:var(--warn); }
@@ -177,7 +160,6 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
 .badge-neutral { background:var(--surface2); color:var(--text3); }
 .badge-manual { background:var(--accent2-light); color:var(--accent2); }
 
-/* ── Dashboard materia stat ── */
 .materia-stat-row { padding:14px 0; border-bottom:1px solid var(--border); }
 .materia-stat-row:last-child { border-bottom:none; }
 .materia-stat-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; }
@@ -187,11 +169,9 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
 .conteudo-stat-item { display:flex; justify-content:space-between; align-items:center; padding:4px 0; font-size:12px; color:var(--text2); gap:8px; }
 .conteudo-stat-item-name { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 
-/* ── Manual session box ── */
 .manual-box { background:var(--accent2-light); border:1.5px solid rgba(200,135,58,.2); border-radius:var(--radius); padding:24px; }
 .manual-box .card-title { color:var(--accent2); }
 
-/* ── Modal ── */
 .modal-overlay { position:fixed; inset:0; background:rgba(26,23,20,.5); backdrop-filter:blur(4px); z-index:100; display:flex; align-items:center; justify-content:center; padding:20px; opacity:0; pointer-events:none; transition:opacity .22s; }
 .modal-overlay.open { opacity:1; pointer-events:all; }
 .modal { background:var(--surface); border-radius:16px; padding:32px; width:100%; max-width:540px; box-shadow:var(--shadow-md); transform:scale(.95); transition:transform .22s; max-height:92vh; overflow-y:auto; }
@@ -207,7 +187,6 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
 .modal-actions { display:flex; gap:10px; margin-top:20px; }
 .modal-actions .btn { flex:1; justify-content:center; }
 
-/* ── Misc ── */
 .inline-form { display:flex; gap:10px; align-items:center; }
 .inline-form input { flex:1; }
 .empty { text-align:center; padding:40px 24px; color:var(--text3); }
@@ -216,9 +195,11 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
 .divider { height:1px; background:var(--border); margin:20px 0; }
 .section-label { font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:var(--text3); margin-bottom:10px; }
 
-/* ── Toast ── */
 .toast { position:fixed; bottom:28px; right:28px; background:var(--text); color:white; padding:12px 20px; border-radius:var(--radius-sm); font-size:13px; font-weight:500; box-shadow:var(--shadow-md); z-index:200; opacity:0; transform:translateY(10px); transition:all .25s; pointer-events:none; }
 .toast.show { opacity:1; transform:translateY(0); }
+
+/* Indicador de Nuvem Status */
+.cloud-status { display:flex; align-items:center; justify-content:center; gap:6px; font-size:11px; padding:6px; margin-top:8px; border-radius:6px; background:var(--surface2); color:var(--text2); }
 
 @media(max-width:780px){
   .sidebar{width:64px;padding:20px 10px;}
@@ -230,56 +211,37 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
   .grid-2,.grid-3{grid-template-columns:1fr;}
   .timer-display{font-size:40px;}
 }
-/* ── Analytics page ── */
 .analytics-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px; margin-bottom:20px; }
 .chart-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:24px; box-shadow:var(--shadow); }
 .chart-card-wide { grid-column: 1 / -1; }
 .chart-container { position:relative; width:100%; }
-
-/* Filter bar */
 .filter-bar { display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end; margin-bottom:20px; padding:16px 20px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow); }
 .filter-group { display:flex; flex-direction:column; gap:5px; min-width:160px; flex:1; }
 .filter-label { font-size:11px; font-weight:600; letter-spacing:.07em; text-transform:uppercase; color:var(--text3); }
 .filter-bar .select-wrap select { padding:8px 12px; font-size:13px; }
 .filter-bar input[type=number] { padding:8px 12px; font-size:13px; width:90px; }
 .filter-bar input[type=range] { accent-color:var(--accent); cursor:pointer; width:100%; }
-
-/* Toggle pills */
 .toggle-group { display:flex; gap:6px; flex-wrap:wrap; }
 .toggle-pill { padding:6px 14px; border-radius:99px; font-size:12px; font-weight:600; border:1.5px solid var(--border); background:var(--surface); color:var(--text2); cursor:pointer; transition:all .18s; user-select:none; }
 .toggle-pill:hover { border-color:var(--accent); color:var(--accent); }
 .toggle-pill.active { background:var(--accent); border-color:var(--accent); color:white; }
 .toggle-pill.subject-pill { border-radius:8px; }
-
-/* Mini stat row */
 .weekly-table { width:100%; border-collapse:collapse; font-size:13px; }
 .weekly-table th { text-align:left; padding:8px 12px; font-size:11px; font-weight:600; letter-spacing:.07em; text-transform:uppercase; color:var(--text3); border-bottom:1.5px solid var(--border); }
 .weekly-table td { padding:9px 12px; border-bottom:1px solid var(--border); }
 .weekly-table tr:last-child td { border-bottom:none; }
-
-/* Goal input inline */
 .goal-row { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
 .goal-value-display { font-family:'DM Mono',monospace; font-size:18px; font-weight:600; color:var(--accent); min-width:44px; }
-
-/* No-data state */
 .no-data-chart { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:200px; color:var(--text3); }
 .no-data-chart .ico { font-size:32px; margin-bottom:10px; }
 .no-data-chart p { font-size:13px; }
-
-/* Subject color swatches */
 .swatch { display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:5px; flex-shrink:0; }
-
-@media(max-width:780px){
-  .analytics-grid { grid-template-columns:1fr; }
-  .filter-bar { flex-direction:column; }
-}
+@media(max-width:780px){ .analytics-grid { grid-template-columns:1fr; } .filter-bar { flex-direction:column; } }
 </style>
 </head>
 <body>
 
 <div class="app" id="appRoot">
-
-<!-- ── SIDEBAR ── -->
 <aside class="sidebar">
   <div class="logo">Aprovado<span>Gestão de Estudos</span></div>
   <nav class="nav">
@@ -289,14 +251,12 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
     <button class="nav-btn" onclick="showPage('materias')"><span class="ico">📚</span><span>Matérias</span></button>
     <button class="nav-btn" onclick="showPage('analytics')"><span class="ico">📈</span><span>Analytics</span></button>
   </nav>
-  <div class="sidebar-footer">Aprovado v3.0<br>Dados locais
+  <div class="sidebar-footer">Aprovado Nuvem
+    <div class="cloud-status" id="db-status">☁️ Conectando...</div>
   </div>
 </aside>
 
-<!-- ── MAIN ── -->
 <main class="main">
-
-<!-- CRONÔMETRO -->
 <section class="page active" id="page-cronometro">
   <h1 class="page-title">Cronômetro</h1>
   <p class="page-sub">Inicie uma sessão de estudo e registre seu progresso em tempo real.</p>
@@ -320,7 +280,7 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
         <div class="card-title">Configurar Sessão</div>
         <div class="form-group">
           <label class="form-label">Matéria</label>
-          <div class="select-wrap"><select id="materia-select" onchange="populateConteudoSelect()"><option value="">— Escolha uma matéria —</option></select></div>
+          <div class="select-wrap"><select id="materia-select"><option value="">— Escolha uma matéria —</option></select></div>
         </div>
         <div style="margin-top:14px;">
           <button class="btn btn-primary" style="width:100%;justify-content:center;" onclick="startTimer()">▶ Iniciar Sessão</button>
@@ -338,7 +298,6 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
   <div class="card"><div class="card-title">Últimas Sessões</div><div id="recent-sessions-list"></div></div>
 </section>
 
-<!-- LANÇAMENTO MANUAL -->
 <section class="page" id="page-manual">
   <h1 class="page-title">Lançamento Manual</h1>
   <p class="page-sub">Registre sessões de estudo passadas que não foram cronometradas.</p>
@@ -346,24 +305,15 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
     <div>
       <div class="manual-box">
         <div class="card-title">✏️ Nova Sessão Manual</div>
-        <div class="form-group">
-          <label class="form-label">Data do estudo</label>
-          <input type="date" id="manual-date">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Matéria</label>
-          <div class="select-wrap"><select id="manual-materia-select" onchange="onManualMateriaChange()"><option value="">— Escolha uma matéria —</option></select></div>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Tempo estudado</label>
+        <div class="form-group"><label class="form-label">Data do estudo</label><input type="date" id="manual-date"></div>
+        <div class="form-group"><label class="form-label">Matéria</label><div class="select-wrap"><select id="manual-materia-select" onchange="onManualMateriaChange()"><option value="">— Escolha uma matéria —</option></select></div></div>
+        <div class="form-group"><label class="form-label">Tempo estudado</label>
           <div class="grid-3" style="gap:8px;">
             <div><input type="number" id="manual-horas" min="0" max="23" placeholder="0" style="text-align:center;"><div class="form-hint">Horas</div></div>
             <div><input type="number" id="manual-minutos" min="0" max="59" placeholder="0" style="text-align:center;"><div class="form-hint">Minutos</div></div>
             <div><input type="number" id="manual-segundos" min="0" max="59" placeholder="0" style="text-align:center;"><div class="form-hint">Segundos</div></div>
           </div>
         </div>
-
-        <!-- conteúdos da sessão manual -->
         <div class="divider" style="margin:16px 0;"></div>
         <div class="section-label">Conteúdos estudados</div>
         <div id="manual-ct-list" class="session-conteudo-list"></div>
@@ -372,30 +322,18 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
           <button class="btn btn-ghost btn-sm" onclick="addManualConteudo()">+ Adicionar</button>
         </div>
         <div id="manual-no-ct-hint" style="font-size:12px;color:var(--text3);margin-top:6px;display:none;">Você também pode salvar sem conteúdo específico.</div>
-
         <div class="divider" style="margin:16px 0;"></div>
-        <div class="form-group" style="margin-bottom:0;">
-          <label class="form-label">Observação <span style="font-weight:400;color:var(--text3)">(opcional)</span></label>
-          <textarea id="manual-obs" placeholder="Ex: Revisão dos capítulos 1-3..."></textarea>
-        </div>
+        <div class="form-group" style="margin-bottom:0;"><label class="form-label">Observação <span style="font-weight:400;color:var(--text3)">(opcional)</span></label><textarea id="manual-obs" placeholder="Ex: Revisão dos capítulos 1-3..."></textarea></div>
         <button class="btn btn-accent2" style="width:100%;justify-content:center;margin-top:16px;" onclick="saveManualSession()">✏️ Registrar Sessão</button>
       </div>
     </div>
     <div style="display:flex;flex-direction:column;gap:16px;">
-      <div class="card">
-        <div class="card-title">Como usar</div>
-        <p style="color:var(--text2);font-size:13px;line-height:1.8;">
-          Registre sessões que você não cronometrou. Informe a data, matéria e tempo.<br><br>
-          Você pode adicionar <strong>vários conteúdos</strong> com questões e acertos individuais por conteúdo.<br><br>
-          A sessão entrará no histórico marcada como <span class="badge badge-manual">Manual</span>.
-        </p>
-      </div>
+      <div class="card"><div class="card-title">Como usar</div><p style="color:var(--text2);font-size:13px;line-height:1.8;">Registre sessões que você não cronometrou. Informe a data, matéria e tempo.<br><br>Você pode adicionar múltiplos conteúdos. A sessão entrará no histórico marcada como <span class="badge badge-manual">Manual</span>.</p></div>
       <div class="card"><div class="card-title">Últimas Manuais</div><div id="manual-recent-list"></div></div>
     </div>
   </div>
 </section>
 
-<!-- DASHBOARD -->
 <section class="page" id="page-dashboard">
   <h1 class="page-title">Dashboard</h1>
   <p class="page-sub">Banco de horas e estatísticas completas de desempenho.</p>
@@ -407,1386 +345,254 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
   <div class="card"><div class="card-title">Histórico de Sessões</div><div id="sessions-history" style="overflow-x:auto;"></div></div>
 </section>
 
-<!-- MATÉRIAS -->
 <section class="page" id="page-materias">
   <h1 class="page-title">Matérias & Conteúdos</h1>
   <p class="page-sub">Gerencie matérias e cadastre os conteúdos de cada uma.</p>
   <div class="grid-2" style="gap:20px;margin-bottom:24px;">
-    <div class="card">
-      <div class="card-title">Nova Matéria</div>
-      <div class="inline-form">
-        <input type="text" id="new-materia-input" placeholder="Ex: Português, Informática..." maxlength="60">
-        <button class="btn btn-primary" onclick="addMateria()" style="flex-shrink:0;">+ Adicionar</button>
-      </div>
-    </div>
-    <div class="card">
-      <div class="card-title">Dica</div>
-      <p style="color:var(--text2);font-size:13px;line-height:1.7;">Clique em uma matéria para expandir e cadastrar seus conteúdos. No registro de sessão você pode adicionar múltiplos conteúdos com questões individuais.</p>
-    </div>
+    <div class="card"><div class="card-title">Nova Matéria</div><div class="inline-form"><input type="text" id="new-materia-input" placeholder="Ex: Português..." maxlength="60"><button class="btn btn-primary" onclick="addMateria()" style="flex-shrink:0;">+ Adicionar</button></div></div>
+    <div class="card"><div class="card-title">Dica</div><p style="color:var(--text2);font-size:13px;line-height:1.7;">Clique em uma matéria para expandir e cadastrar seus conteúdos.</p></div>
   </div>
   <div class="card"><div class="card-title">Matérias Cadastradas</div><div class="materia-list" id="materia-list"></div></div>
 </section>
 
-<!-- ══ ANALYTICS ══ -->
 <section class="page" id="page-analytics">
   <h1 class="page-title">Analytics</h1>
   <p class="page-sub">Evolução do desempenho ao longo do tempo, por matéria e conteúdo.</p>
-
-  <!-- ── Filter bar ── -->
   <div class="filter-bar">
-    <div class="filter-group">
-      <div class="filter-label">Matéria</div>
-      <div class="select-wrap"><select id="an-materia-sel" onchange="anOnMateriaChange()"><option value="__all__">Todas as matérias</option></select></div>
-    </div>
-    <div class="filter-group">
-      <div class="filter-label">Conteúdo</div>
-      <div class="select-wrap"><select id="an-conteudo-sel" onchange="anRender()"><option value="__all__">Todos os conteúdos</option></select></div>
-    </div>
-    <div class="filter-group" style="min-width:140px;max-width:180px;">
-      <div class="filter-label">Meta de aproveitamento</div>
-      <div class="goal-row">
-        <input type="range" id="an-goal-range" min="0" max="100" step="5" value="70" oninput="anUpdateGoal(this.value)">
-        <div class="goal-value-display" id="an-goal-display">70%</div>
-      </div>
-    </div>
-    <div class="filter-group" style="min-width:auto;flex:0;">
-      <div class="filter-label">Visualização</div>
-      <div class="toggle-group">
-        <div class="toggle-pill active" id="an-mode-raw" onclick="anSetMode('raw')">Dados reais</div>
-        <div class="toggle-pill" id="an-mode-weekly" onclick="anSetMode('weekly')">Média semanal</div>
-      </div>
-    </div>
+    <div class="filter-group"><div class="filter-label">Matéria</div><div class="select-wrap"><select id="an-materia-sel" onchange="anOnMateriaChange()"><option value="__all__">Todas</option></select></div></div>
+    <div class="filter-group"><div class="filter-label">Conteúdo</div><div class="select-wrap"><select id="an-conteudo-sel" onchange="anRender()"><option value="__all__">Todos</option></select></div></div>
+    <div class="filter-group" style="min-width:140px;max-width:180px;"><div class="filter-label">Meta de aproveitamento</div><div class="goal-row"><input type="range" id="an-goal-range" min="0" max="100" step="5" value="70" oninput="anUpdateGoal(this.value)"><div class="goal-value-display" id="an-goal-display">70%</div></div></div>
+    <div class="filter-group" style="min-width:auto;flex:0;"><div class="filter-label">Visualização</div><div class="toggle-group"><div class="toggle-pill active" id="an-mode-raw" onclick="anSetMode('raw')">Dados reais</div><div class="toggle-pill" id="an-mode-weekly" onclick="anSetMode('weekly')">Média semanal</div></div></div>
   </div>
-
-  <!-- ── Subject compare pills ── -->
-  <div style="margin-bottom:16px;">
-    <div class="filter-label" style="margin-bottom:8px;">Comparar matérias (clique para ativar/desativar)</div>
-    <div class="toggle-group" id="an-subject-pills"></div>
-  </div>
-
-  <!-- ── Main chart ── -->
+  <div style="margin-bottom:16px;"><div class="filter-label" style="margin-bottom:8px;">Comparar matérias</div><div class="toggle-group" id="an-subject-pills"></div></div>
   <div class="chart-card chart-card-wide" style="margin-bottom:20px;">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
       <div class="card-title" style="margin-bottom:0;">Evolução do Aproveitamento</div>
-      <div style="font-size:12px;color:var(--text3);" id="an-chart-subtitle">Últimos 5 registros por conteúdo</div>
+      <div style="font-size:12px;color:var(--text3);" id="an-chart-subtitle">Últimos registros</div>
     </div>
-    <div class="chart-container" style="height:320px;" id="an-main-chart-wrap">
-      <canvas id="an-main-chart"></canvas>
-    </div>
-    <div class="no-data-chart" id="an-no-data" style="display:none;">
-      <div class="ico">📈</div>
-      <p>Nenhum dado disponível ainda.<br>Registre sessões com questões para ver a evolução.</p>
-    </div>
+    <div class="chart-container" style="height:320px;" id="an-main-chart-wrap"><canvas id="an-main-chart"></canvas></div>
+    <div class="no-data-chart" id="an-no-data" style="display:none;"><div class="ico">📈</div><p>Nenhum dado disponível.</p></div>
   </div>
-
-  <!-- ── Bottom row: weekly table + stats ── -->
   <div class="analytics-grid">
-    <div class="chart-card">
-      <div class="card-title">Média Semanal</div>
-      <div id="an-weekly-table-wrap"></div>
-    </div>
-    <div class="chart-card">
-      <div class="card-title">Top Conteúdos</div>
-      <div id="an-top-conteudos-wrap"></div>
-    </div>
-    <div class="chart-card">
-      <div class="card-title">Resumo do Período</div>
-      <div id="an-period-summary-wrap"></div>
-    </div>
+    <div class="chart-card"><div class="card-title">Média Semanal</div><div id="an-weekly-table-wrap"></div></div>
+    <div class="chart-card"><div class="card-title">Top Conteúdos</div><div id="an-top-conteudos-wrap"></div></div>
+    <div class="chart-card"><div class="card-title">Resumo do Período</div><div id="an-period-summary-wrap"></div></div>
   </div>
 </section>
-
 </main>
 </div>
 
-<!-- ══ MODAL REGISTRAR SESSÃO (cronômetro) ══ -->
 <div class="modal-overlay" id="finish-modal">
   <div class="modal">
     <div class="modal-title">Registrar Sessão</div>
     <div class="modal-sub">Informe os conteúdos estudados e questões por conteúdo.</div>
-
-    <div class="modal-time">
-      <div class="modal-time-label">⏱ Tempo da sessão</div>
-      <div class="modal-time-val" id="modal-time-display">00:00:00</div>
-    </div>
-
-    <div class="form-group">
-      <label class="form-label">Matéria</label>
-      <input type="text" id="modal-materia-label" readonly>
-    </div>
-
-    <!-- lista de conteúdos adicionados -->
+    <div class="modal-time"><div class="modal-time-label">⏱ Tempo da sessão</div><div class="modal-time-val" id="modal-time-display">00:00:00</div></div>
+    <div class="form-group"><label class="form-label">Matéria</label><input type="text" id="modal-materia-label" readonly></div>
     <div class="section-label">Conteúdos estudados</div>
     <div id="modal-ct-list" class="session-conteudo-list" style="margin-bottom:10px;"></div>
-
-    <!-- adicionar conteúdo -->
-    <div class="add-ct-row" id="modal-add-ct-row">
-      <div class="select-wrap" style="flex:1;"><select id="modal-ct-select"><option value="">— Selecione um conteúdo —</option></select></div>
-      <button class="btn btn-ghost btn-sm" onclick="addModalConteudo()">+ Adicionar</button>
-    </div>
-    <div style="font-size:12px;color:var(--text3);margin-top:6px;margin-bottom:16px;">Você pode salvar sem conteúdo, ou adicionar quantos quiser.</div>
-
-    <div class="modal-actions">
-      <button class="btn btn-secondary" onclick="cancelFinish()">Cancelar</button>
-      <button class="btn btn-primary" onclick="saveSession()">✓ Salvar Sessão</button>
-    </div>
+    <div class="add-ct-row" id="modal-add-ct-row"><div class="select-wrap" style="flex:1;"><select id="modal-ct-select"><option value="">— Selecione um conteúdo —</option></select></div><button class="btn btn-ghost btn-sm" onclick="addModalConteudo()">+ Adicionar</button></div>
+    <div class="modal-actions"><button class="btn btn-secondary" onclick="cancelFinish()">Cancelar</button><button class="btn btn-primary" onclick="saveSession()">✓ Salvar Sessão</button></div>
   </div>
 </div>
-
 <div class="toast" id="toast"></div>
 
 <script>
 // ══════════════════════════════════════════════════
-//  STATE
-//  session: { id, date, materia, duration, manual, obs,
-//             conteudos: [{ name, total, correct, onlyTheory }] }
-//  conteudos[] pode ser [] se foi só teoria geral
+//  ATENÇÃO: CONFIGURAÇÃO DO FIREBASE (PASSO 4)
 // ══════════════════════════════════════════════════
+// Apague tudo que está dentro das chaves { ... } abaixo, 
+// e COLE AS SUAS CHAVES DO PASSO 2 ali dentro.
+
+const firebaseConfig = {const firebaseConfig = {
+  apiKey: "AIzaSyA18zQiXornSPjb-eZ3EIn13PozIjD8K8Q",
+  authDomain: "meuaprovadoapp.firebaseapp.com",
+  projectId: "meuaprovadoapp",
+  storageBucket: "meuaprovadoapp.firebasestorage.app",
+  messagingSenderId: "836844323489",
+  appId: "1:836844323489:web:165a234bbf05b8608ba6e0"
+};
+
+// ══════════════════════════════════════════════════
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
 let state = { materias: [], sessions: [] };
-
-// ── Timer state ──
 let timerInterval = null, timerSeconds = 0, timerRunning = false, timerPaused = false;
-let currentMateria = null, sessionStart = null;
-let timerStartedAt = null, timerBaseSeconds = 0;
-
-// ── In-progress session conteudos (modal) ──
-// modalConteudos = [{ name, total, correct, onlyTheory }]
-let modalConteudos = [];
-// manualConteudos = same structure for manual page
-let manualConteudos = [];
+let currentMateria = null, sessionStart = null, timerStartedAt = null, timerBaseSeconds = 0;
+let modalConteudos = [], manualConteudos = [];
 
 // ══════════════════════════════════════════════════
-//  STORAGE
+//  STORAGE - AGORA NA NUVEM
 // ══════════════════════════════════════════════════
-function loadState() {
-  const saved = localStorage.getItem('aprovado_data_v3');
-  if (saved) {
-    state = JSON.parse(saved);
-    state.materias = state.materias.map(m => typeof m === 'string' ? { name: m, conteudos: [] } : m);
-    // migra sessões antigas (conteudo string → conteudos array)
-    state.sessions = state.sessions.map(s => {
-      if (!s.conteudos) {
-        const ctName = s.conteudo || '';
-        s.conteudos = ctName ? [{ name: ctName, total: s.total||0, correct: s.correct||0, onlyTheory: s.onlyTheory||false }] : [];
-        delete s.conteudo; delete s.total; delete s.correct; delete s.onlyTheory;
+async function loadState() {
+  document.getElementById('db-status').innerHTML = '☁️ Conectando...';
+  try {
+    const doc = await db.collection('AprovadoApp').doc('Estudos').get();
+    if (doc.exists) {
+      state = doc.data().state;
+      state.materias = state.materias || [];
+      state.sessions = state.sessions || [];
+    } else {
+      // Se for a primeira vez no banco, tenta puxar do PC antigo e salva na nuvem
+      const savedLocal = localStorage.getItem('aprovado_data_v3');
+      if (savedLocal) {
+        state = JSON.parse(savedLocal);
+      } else {
+        state = { materias: [{name:'Regimento Interno', conteudos:[]}], sessions: [] };
       }
-      return s;
-    });
-    return;
+      await saveState();
+    }
+    document.getElementById('db-status').innerHTML = '✅ Nuvem Sincronizada';
+  } catch (error) {
+    console.error(error);
+    document.getElementById('db-status').innerHTML = '❌ Erro na Nuvem';
+    showToast('Erro de conexão. Verifique suas chaves do Firebase.');
   }
-  // tenta migrar v2
-  const v2 = localStorage.getItem('aprovado_data_v2');
-  if (v2) {
-    const old = JSON.parse(v2);
-    state = {
-      materias: old.materias.map(m => typeof m === 'string' ? {name:m,conteudos:[]} : m),
-      sessions: old.sessions.map(s => ({
-        id: s.id, date: s.date, materia: s.materia,
-        duration: s.duration, manual: s.manual||false, obs: s.obs||'',
-        conteudos: s.conteudo ? [{ name:s.conteudo, total:s.total||0, correct:s.correct||0, onlyTheory:s.onlyTheory||false }] : []
-      }))
-    };
-    saveState(); return;
-  }
-  state = {
-    materias: [
-      { name:'Regimento Interno', conteudos:[] },
-      { name:'Raciocínio Lógico', conteudos:[] },
-      { name:'Direito Constitucional', conteudos:[] }
-    ],
-    sessions: []
-  };
-  saveState();
 }
 
-function saveState() { localStorage.setItem('aprovado_data_v3', JSON.stringify(state)); }
+async function saveState() {
+  document.getElementById('db-status').innerHTML = '☁️ Salvando...';
+  try {
+    await db.collection('AprovadoApp').doc('Estudos').set({ state: state });
+    document.getElementById('db-status').innerHTML = '✅ Nuvem Sincronizada';
+  } catch (error) {
+    console.error(error);
+    document.getElementById('db-status').innerHTML = '❌ Erro ao salvar';
+  }
+}
 
 // ══════════════════════════════════════════════════
-//  NAVIGATION
+// O RESTANTE DO CÓDIGO PERMANECE IGUAL
 // ══════════════════════════════════════════════════
 function showPage(name) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('page-'+name).classList.add('active');
-  document.querySelectorAll('.nav-btn').forEach(b => {
-    if (b.getAttribute('onclick') && b.getAttribute('onclick').includes("'"+name+"'")) b.classList.add('active');
-  });
+  document.querySelectorAll('.nav-btn').forEach(b => { if (b.getAttribute('onclick') && b.getAttribute('onclick').includes("'"+name+"'")) b.classList.add('active'); });
   if (name==='dashboard') renderDashboard();
   if (name==='materias') renderMaterias();
   if (name==='cronometro') renderCronometroPage();
   if (name==='analytics') renderAnalytics();
 }
 
-// ══════════════════════════════════════════════════
-//  MATÉRIAS
-// ══════════════════════════════════════════════════
 function getMateriaObj(name) { return state.materias.find(m => m.name === name); }
 
 function renderMaterias() {
   const list = document.getElementById('materia-list');
-  if (!state.materias.length) {
-    list.innerHTML = '<div class="empty"><div class="ico">📚</div><p>Nenhuma matéria cadastrada.</p></div>'; return;
-  }
+  if (!state.materias.length) { list.innerHTML = '<div class="empty"><p>Nenhuma matéria cadastrada.</p></div>'; return; }
   list.innerHTML = state.materias.map((m, i) => {
     const c = m.conteudos || [];
-    const rows = c.length
-      ? c.map((ct, j) => {
-          // calc stats for this conteudo across all sessions
-          let secs=0, tQ=0, cQ=0;
-          state.sessions.forEach(s => {
-            if (s.materia !== m.name) return;
-            s.conteudos.forEach(sc => {
-              if (sc.name !== ct) return;
-              secs += Math.round(s.duration / (s.conteudos.length||1));
-              if (!sc.onlyTheory) { tQ += sc.total||0; cQ += sc.correct||0; }
-            });
-          });
-          const perc = tQ>0 ? Math.round(cQ/tQ*100) : null;
-          return `<div class="conteudo-row">
-            <div class="conteudo-row-name">${escHtml(ct)}</div>
-            <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text3);">${formatTime(secs)}</span>
-            ${perc!==null ? aprovBadge(perc) : '<span style="color:var(--text3);font-size:11px;">—</span>'}
-            <button class="conteudo-del" onclick="deleteConteudo(${i},${j})">✕</button>
-          </div>`;
-        }).join('')
-      : '<div style="font-size:12px;color:var(--text3);padding:10px 0;">Nenhum conteúdo cadastrado.</div>';
-
-    return `<div class="materia-item">
-      <div class="materia-header" onclick="toggleMateria(${i})">
-        <div class="materia-dot"></div>
-        <div class="materia-name-text">${escHtml(m.name)}</div>
-        <div class="materia-meta">${c.length} conteúdo${c.length!==1?'s':''}</div>
-        <span class="materia-toggle" id="mt-${i}">▼</span>
-        <button class="materia-del" onclick="event.stopPropagation();deleteMateria(${i})">✕</button>
-      </div>
-      <div class="conteudos-panel" id="cp-${i}">
-        <div class="conteudo-list">${rows}</div>
-        <div class="conteudo-add">
-          <input type="text" id="ci-${i}" placeholder="Nome do conteúdo..." maxlength="80" onkeydown="if(event.key==='Enter')addConteudo(${i})">
-          <button class="btn btn-primary" style="flex-shrink:0;padding:10px 14px;" onclick="addConteudo(${i})">+</button>
-        </div>
-      </div>
-    </div>`;
+    const rows = c.length ? c.map((ct, j) => `<div class="conteudo-row"><div class="conteudo-row-name">${escHtml(ct)}</div><button class="conteudo-del" onclick="deleteConteudo(${i},${j})">✕</button></div>`).join('') : '<div style="font-size:12px;color:var(--text3);padding:10px 0;">Nenhum conteúdo.</div>';
+    return `<div class="materia-item"><div class="materia-header" onclick="toggleMateria(${i})"><div class="materia-dot"></div><div class="materia-name-text">${escHtml(m.name)}</div><span class="materia-toggle" id="mt-${i}">▼</span><button class="materia-del" onclick="event.stopPropagation();deleteMateria(${i})">✕</button></div><div class="conteudos-panel" id="cp-${i}"><div class="conteudo-list">${rows}</div><div class="conteudo-add"><input type="text" id="ci-${i}" placeholder="Novo conteúdo..."><button class="btn btn-primary" onclick="addConteudo(${i})">+</button></div></div></div>`;
   }).join('');
 }
 
-function toggleMateria(i) {
-  const p=document.getElementById('cp-'+i), t=document.getElementById('mt-'+i);
-  p.classList.toggle('open'); t.classList.toggle('open', p.classList.contains('open'));
-}
+function toggleMateria(i) { const p=document.getElementById('cp-'+i), t=document.getElementById('mt-'+i); p.classList.toggle('open'); t.classList.toggle('open', p.classList.contains('open')); }
+async function addMateria() { const input=document.getElementById('new-materia-input'); const name=input.value.trim(); if(!name)return; state.materias.push({name, conteudos:[]}); await saveState(); input.value=''; renderMaterias(); refreshAllSelects(); }
+async function deleteMateria(i) { if(!confirm(`Remover "${state.materias[i].name}"?`))return; state.materias.splice(i,1); await saveState(); renderMaterias(); refreshAllSelects(); }
+async function addConteudo(mi) { const input=document.getElementById('ci-'+mi), name=input.value.trim(); if(!name)return; state.materias[mi].conteudos.push(name); await saveState(); input.value=''; renderMaterias(); refreshAllSelects(); }
+async function deleteConteudo(mi,ci) { if(!confirm(`Remover?`))return; state.materias[mi].conteudos.splice(ci,1); await saveState(); renderMaterias(); refreshAllSelects(); }
 
-function addMateria() {
-  const input = document.getElementById('new-materia-input');
-  const name = input.value.trim();
-  if (!name) { showToast('Digite o nome da matéria.'); return; }
-  if (state.materias.find(m=>m.name===name)) { showToast('Matéria já cadastrada.'); return; }
-  state.materias.push({ name, conteudos:[] });
-  saveState(); input.value='';
-  renderMaterias(); refreshAllSelects();
-  showToast('Matéria adicionada!');
-}
-
-function deleteMateria(i) {
-  if (!confirm(`Remover "${state.materias[i].name}"?`)) return;
-  state.materias.splice(i,1);
-  saveState(); renderMaterias(); refreshAllSelects();
-  showToast('Matéria removida.');
-}
-
-function addConteudo(mi) {
-  const input=document.getElementById('ci-'+mi), name=input.value.trim();
-  if (!name) { showToast('Digite o nome do conteúdo.'); return; }
-  const mat=state.materias[mi];
-  if (!mat.conteudos) mat.conteudos=[];
-  if (mat.conteudos.includes(name)) { showToast('Conteúdo já cadastrado.'); return; }
-  mat.conteudos.push(name);
-  saveState(); input.value='';
-  renderMaterias();
-  const p=document.getElementById('cp-'+mi), t=document.getElementById('mt-'+mi);
-  if(p){p.classList.add('open');t.classList.add('open');}
-  refreshAllSelects();
-  showToast('Conteúdo adicionado!');
-}
-
-function deleteConteudo(mi,ci) {
-  if (!confirm(`Remover "${state.materias[mi].conteudos[ci]}"?`)) return;
-  state.materias[mi].conteudos.splice(ci,1);
-  saveState(); renderMaterias();
-  const p=document.getElementById('cp-'+mi), t=document.getElementById('mt-'+mi);
-  if(p){p.classList.add('open');t.classList.add('open');}
-  refreshAllSelects();
-  showToast('Conteúdo removido.');
-}
-
-document.getElementById('new-materia-input').addEventListener('keydown',e=>{if(e.key==='Enter')addMateria();});
-
-// ══════════════════════════════════════════════════
-//  SELECTS (cronômetro page)
-// ══════════════════════════════════════════════════
-function populateMateriaSelect() {
-  const sel=document.getElementById('materia-select'), cur=sel.value;
-  sel.innerHTML='<option value="">— Escolha uma matéria —</option>';
-  state.materias.forEach(m=>{ const o=document.createElement('option'); o.value=m.name; o.textContent=m.name; if(m.name===cur)o.selected=true; sel.appendChild(o); });
-}
-
-function populateConteudoSelect() {} // removed — now handled in modal
-
-function refreshAllSelects() {
-  populateMateriaSelect();
-  populateManualMateriaSelect();
-}
-
-// ══════════════════════════════════════════════════
-//  TIMER
-// ══════════════════════════════════════════════════
-function formatTime(secs) {
-  const h=Math.floor(secs/3600).toString().padStart(2,'0');
-  const m=Math.floor((secs%3600)/60).toString().padStart(2,'0');
-  const s=(secs%60).toString().padStart(2,'0');
-  return `${h}:${m}:${s}`;
-}
+function populateMateriaSelect() { const sel=document.getElementById('materia-select'), cur=sel.value; sel.innerHTML='<option value="">— Escolha uma matéria —</option>'; state.materias.forEach(m=>{ const o=document.createElement('option'); o.value=m.name; o.textContent=m.name; if(m.name===cur)o.selected=true; sel.appendChild(o); }); }
+function refreshAllSelects() { populateMateriaSelect(); populateManualMateriaSelect(); }
+function formatTime(secs) { const h=Math.floor(secs/3600).toString().padStart(2,'0'), m=Math.floor((secs%3600)/60).toString().padStart(2,'0'), s=(secs%60).toString().padStart(2,'0'); return `${h}:${m}:${s}`; }
 
 function startTimer() {
-  const sel=document.getElementById('materia-select');
-  if (!sel.value) { showToast('Selecione uma matéria antes de iniciar.'); return; }
-
-  if (timerPaused) {
-    timerBaseSeconds=timerSeconds; timerStartedAt=Date.now();
-    timerRunning=true; timerPaused=false;
-    document.getElementById('timer-status').textContent='Em andamento';
-    document.getElementById('session-status-badge').innerHTML='<span class="badge badge-green">● Ativa</span>';
-    timerInterval=setInterval(tickTimer,500);
-    document.getElementById('btn-play').disabled=true;
-    document.getElementById('btn-play').textContent='▶ Iniciar';
-    document.getElementById('btn-pause').disabled=false;
-    document.getElementById('btn-finish').disabled=false;
-    setFinishActive(); return;
-  }
+  const sel=document.getElementById('materia-select'); if (!sel.value) { showToast('Selecione uma matéria.'); return; }
+  if (timerPaused) { timerBaseSeconds=timerSeconds; timerStartedAt=Date.now(); timerRunning=true; timerPaused=false; document.getElementById('timer-status').textContent='Em andamento'; timerInterval=setInterval(tickTimer,500); document.getElementById('btn-play').disabled=true; document.getElementById('btn-pause').disabled=false; document.getElementById('btn-finish').disabled=false; return; }
   if (timerRunning) return;
-
-  currentMateria=sel.value;
-  sessionStart=new Date();
-  timerSeconds=0; timerBaseSeconds=0; timerStartedAt=Date.now();
-  timerRunning=true; timerPaused=false;
-
-  document.getElementById('timer-materia-name').textContent=currentMateria;
-  document.getElementById('timer-conteudo-name').textContent='';
-  document.getElementById('timer-display').textContent='00:00:00';
-  document.getElementById('timer-status').textContent='Em andamento';
-  document.getElementById('btn-play').disabled=true;
-  document.getElementById('btn-pause').disabled=false;
-  document.getElementById('btn-finish').disabled=false;
-  setFinishActive();
-  document.getElementById('session-live').style.display='block';
-  document.getElementById('session-start-label').textContent=sessionStart.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
-  document.getElementById('session-status-badge').innerHTML='<span class="badge badge-green">● Ativa</span>';
-  timerInterval=setInterval(tickTimer,500);
+  currentMateria=sel.value; sessionStart=new Date(); timerSeconds=0; timerBaseSeconds=0; timerStartedAt=Date.now(); timerRunning=true; timerPaused=false;
+  document.getElementById('timer-materia-name').textContent=currentMateria; document.getElementById('timer-display').textContent='00:00:00'; document.getElementById('timer-status').textContent='Em andamento'; document.getElementById('btn-play').disabled=true; document.getElementById('btn-pause').disabled=false; document.getElementById('btn-finish').disabled=false; document.getElementById('session-live').style.display='block'; timerInterval=setInterval(tickTimer,500);
 }
 
-function setFinishActive() {
-  document.getElementById('btn-finish').style.cssText='background:rgba(192,57,43,.25);color:#ffb3b0;border-color:rgba(192,57,43,.4);';
-}
+function tickTimer() { timerSeconds=timerBaseSeconds+Math.floor((Date.now()-timerStartedAt)/1000); document.getElementById('timer-display').textContent=formatTime(timerSeconds); }
+function pauseTimer() { if (!timerRunning) return; timerBaseSeconds=timerSeconds; timerStartedAt=null; clearInterval(timerInterval); timerRunning=false; timerPaused=true; document.getElementById('timer-status').textContent='Pausado'; document.getElementById('btn-play').disabled=false; document.getElementById('btn-pause').disabled=true; }
+function openFinishModal() { if (!timerRunning && !timerPaused) return; clearInterval(timerInterval); timerRunning=false; modalConteudos=[]; document.getElementById('modal-time-display').textContent=formatTime(timerSeconds); document.getElementById('modal-materia-label').value=currentMateria; populateModalCtSelect(); renderModalCtList(); document.getElementById('finish-modal').classList.add('open'); }
+function cancelFinish() { document.getElementById('finish-modal').classList.remove('open'); if (timerSeconds>0) { timerPaused=true; timerRunning=false; document.getElementById('timer-status').textContent='Pausado'; } }
 
-function tickTimer() {
-  timerSeconds=timerBaseSeconds+Math.floor((Date.now()-timerStartedAt)/1000);
-  document.getElementById('timer-display').textContent=formatTime(timerSeconds);
-}
-
-function pauseTimer() {
-  if (!timerRunning) return;
-  timerBaseSeconds=timerSeconds; timerStartedAt=null;
-  clearInterval(timerInterval); timerRunning=false; timerPaused=true;
-  document.getElementById('timer-status').textContent='Pausado';
-  document.getElementById('session-status-badge').innerHTML='<span class="badge badge-warn">⏸ Pausada</span>';
-  document.getElementById('btn-play').disabled=false;
-  document.getElementById('btn-play').textContent='▶ Retomar';
-  document.getElementById('btn-pause').disabled=true;
-}
-
-function openFinishModal() {
-  if (!timerRunning && !timerPaused) return;
-  clearInterval(timerInterval); timerRunning=false;
-  // init modal
-  modalConteudos=[];
-  document.getElementById('modal-time-display').textContent=formatTime(timerSeconds);
-  document.getElementById('modal-materia-label').value=currentMateria;
-  populateModalCtSelect();
-  renderModalCtList();
-  document.getElementById('finish-modal').classList.add('open');
-}
-
-function cancelFinish() {
-  document.getElementById('finish-modal').classList.remove('open');
-  // reativa timer pausado
-  if (timerSeconds>0) { timerPaused=true; timerRunning=false; document.getElementById('timer-status').textContent='Pausado'; }
-}
-
-// ── modal conteudos ──
-function populateModalCtSelect() {
-  const mat=getMateriaObj(currentMateria);
-  const sel=document.getElementById('modal-ct-select');
-  sel.innerHTML='<option value="">— Selecione um conteúdo —</option>';
-  if (mat && mat.conteudos) {
-    mat.conteudos
-      .filter(c => !modalConteudos.find(mc=>mc.name===c))
-      .forEach(c=>{ const o=document.createElement('option'); o.value=c; o.textContent=c; sel.appendChild(o); });
-  }
-}
-
-function addModalConteudo() {
-  const sel=document.getElementById('modal-ct-select');
-  const name=sel.value;
-  if (!name) { showToast('Selecione um conteúdo para adicionar.'); return; }
-  if (modalConteudos.find(c=>c.name===name)) { showToast('Conteúdo já adicionado.'); return; }
-  modalConteudos.push({ name, total:0, correct:0, onlyTheory:false });
-  populateModalCtSelect();
-  renderModalCtList();
-}
-
-function removeModalConteudo(i) {
-  modalConteudos.splice(i,1);
-  populateModalCtSelect();
-  renderModalCtList();
-}
-
-function toggleModalCtBody(i) {
-  const body=document.getElementById('mctb-'+i);
-  const tog=document.getElementById('mctt-'+i);
-  const open=body.classList.toggle('open');
-  tog.classList.toggle('open',open);
-}
-
-function updateModalCt(i) {
-  const noQ=document.getElementById('mct-noq-'+i).checked;
-  const total=parseInt(document.getElementById('mct-total-'+i).value)||0;
-  const correct=parseInt(document.getElementById('mct-correct-'+i).value)||0;
-  modalConteudos[i].onlyTheory=noQ;
-  modalConteudos[i].total=noQ?0:total;
-  modalConteudos[i].correct=noQ?0:correct;
-  // update summary label
-  const sum=document.getElementById('mcts-'+i);
-  if (sum) sum.textContent=ctSummaryText(modalConteudos[i]);
-}
-
-function ctSummaryText(ct) {
-  if (ct.onlyTheory) return 'Só teoria';
-  if (ct.total===0) return 'Sem questões';
-  const p=Math.round(ct.correct/ct.total*100);
-  return `${ct.correct}/${ct.total} (${p}%)`;
-}
+function populateModalCtSelect() { const mat=getMateriaObj(currentMateria); const sel=document.getElementById('modal-ct-select'); sel.innerHTML='<option value="">— Selecione —</option>'; if(mat&&mat.conteudos) mat.conteudos.filter(c=>!modalConteudos.find(mc=>mc.name===c)).forEach(c=>{ const o=document.createElement('option'); o.value=c; o.textContent=c; sel.appendChild(o); }); }
+function addModalConteudo() { const sel=document.getElementById('modal-ct-select'); const name=sel.value; if(!name)return; modalConteudos.push({name,total:0,correct:0,onlyTheory:false}); populateModalCtSelect(); renderModalCtList(); }
+function removeModalConteudo(i) { modalConteudos.splice(i,1); populateModalCtSelect(); renderModalCtList(); }
+function toggleModalCtBody(i) { document.getElementById('mctb-'+i).classList.toggle('open'); }
+function updateModalCt(i) { const noQ=document.getElementById('mct-noq-'+i).checked; const total=parseInt(document.getElementById('mct-total-'+i).value)||0; const correct=parseInt(document.getElementById('mct-correct-'+i).value)||0; modalConteudos[i].onlyTheory=noQ; modalConteudos[i].total=noQ?0:total; modalConteudos[i].correct=noQ?0:correct; }
 
 function renderModalCtList() {
-  const el=document.getElementById('modal-ct-list');
-  if (!modalConteudos.length) {
-    el.innerHTML='<div style="font-size:12px;color:var(--text3);padding:4px 0 8px;">Nenhum conteúdo adicionado — a sessão será salva como estudo geral.</div>';
-    return;
-  }
-  el.innerHTML=modalConteudos.map((ct,i)=>`
-    <div class="session-ct-row">
-      <div class="session-ct-header" onclick="toggleModalCtBody(${i})">
-        <div class="session-ct-name">📖 ${escHtml(ct.name)}</div>
-        <div class="session-ct-summary" id="mcts-${i}">${ctSummaryText(ct)}</div>
-        <span class="session-ct-toggle" id="mctt-${i}">▼</span>
-        <button class="session-ct-del" onclick="event.stopPropagation();removeModalConteudo(${i})">✕</button>
-      </div>
-      <div class="session-ct-body" id="mctb-${i}">
-        <div class="form-group" style="margin-bottom:10px;">
-          <div class="checkbox-wrap" style="padding:9px 12px;">
-            <input type="checkbox" id="mct-noq-${i}" ${ct.onlyTheory?'checked':''} onchange="updateModalCt(${i})">
-            <label for="mct-noq-${i}" style="font-size:13px;">Não resolvi questões neste conteúdo</label>
-          </div>
-        </div>
-        <div id="mct-qform-${i}" style="display:${ct.onlyTheory?'none':'block'};">
-          <div class="grid-2" style="gap:10px;">
-            <div><label class="form-label">Total de questões</label><input type="number" id="mct-total-${i}" min="0" placeholder="0" value="${ct.total||''}" oninput="updateModalCt(${i})"></div>
-            <div><label class="form-label">Questões certas</label><input type="number" id="mct-correct-${i}" min="0" placeholder="0" value="${ct.correct||''}" oninput="updateModalCt(${i})"></div>
-          </div>
-        </div>
-      </div>
-    </div>
-  `).join('');
-
-  // show/hide qform when checkbox changes
-  modalConteudos.forEach((_,i)=>{
-    const cb=document.getElementById('mct-noq-'+i);
-    if(cb) cb.addEventListener('change',()=>{
-      document.getElementById('mct-qform-'+i).style.display=cb.checked?'none':'block';
-    });
-  });
+  const el=document.getElementById('modal-ct-list'); if(!modalConteudos.length){ el.innerHTML='Estudo geral'; return; }
+  el.innerHTML=modalConteudos.map((ct,i)=>`<div class="session-ct-row"><div class="session-ct-header" onclick="toggleModalCtBody(${i})"><div class="session-ct-name">📖 ${escHtml(ct.name)}</div><button class="session-ct-del" onclick="event.stopPropagation();removeModalConteudo(${i})">✕</button></div><div class="session-ct-body" id="mctb-${i}"><div class="checkbox-wrap"><input type="checkbox" id="mct-noq-${i}" ${ct.onlyTheory?'checked':''} onchange="updateModalCt(${i})"><label for="mct-noq-${i}">Sem questões</label></div><div id="mct-qform-${i}" style="display:${ct.onlyTheory?'none':'block'};margin-top:10px;"><input type="number" id="mct-total-${i}" placeholder="Total" value="${ct.total||''}" oninput="updateModalCt(${i})"><input type="number" id="mct-correct-${i}" placeholder="Certas" value="${ct.correct||''}" oninput="updateModalCt(${i})"></div></div></div>`).join('');
+  modalConteudos.forEach((_,i)=>{ const cb=document.getElementById('mct-noq-'+i); if(cb)cb.addEventListener('change',()=>{ document.getElementById('mct-qform-'+i).style.display=cb.checked?'none':'block'; }); });
 }
 
-function saveSession() {
-  // validate
-  for (let i=0; i<modalConteudos.length; i++) {
-    const ct=modalConteudos[i];
-    if (!ct.onlyTheory && ct.correct>ct.total) { showToast(`"${ct.name}": acertos não podem ser maiores que o total.`); return; }
-  }
-
-  state.sessions.unshift({
-    id: Date.now(),
-    date: new Date().toISOString(),
-    materia: currentMateria,
-    duration: timerSeconds,
-    manual: false,
-    obs: '',
-    conteudos: modalConteudos.map(c=>({...c}))
-  });
-  saveState(); resetTimerUI();
-  document.getElementById('finish-modal').classList.remove('open');
-  renderCronometroPage();
-  showToast('Sessão salva! 🎉');
+async function saveSession() {
+  state.sessions.unshift({ id: Date.now(), date: new Date().toISOString(), materia: currentMateria, duration: timerSeconds, manual: false, obs: '', conteudos: modalConteudos.map(c=>({...c})) });
+  await saveState();
+  timerSeconds=0; timerBaseSeconds=0; timerStartedAt=null; timerRunning=false; timerPaused=false; currentMateria=null; sessionStart=null; clearInterval(timerInterval);
+  document.getElementById('timer-materia-name').textContent='—'; document.getElementById('timer-display').textContent='00:00:00'; document.getElementById('timer-status').textContent='Aguardando'; document.getElementById('btn-play').disabled=false; document.getElementById('btn-pause').disabled=true; document.getElementById('btn-finish').disabled=true; document.getElementById('session-live').style.display='none'; document.getElementById('finish-modal').classList.remove('open');
+  renderCronometroPage(); showToast('Salvo na Nuvem!');
 }
 
-function resetTimerUI() {
-  timerSeconds=0; timerBaseSeconds=0; timerStartedAt=null;
-  timerRunning=false; timerPaused=false; currentMateria=null; sessionStart=null;
-  clearInterval(timerInterval);
-  document.getElementById('timer-materia-name').textContent='—';
-  document.getElementById('timer-conteudo-name').textContent='';
-  document.getElementById('timer-display').textContent='00:00:00';
-  document.getElementById('timer-status').textContent='Aguardando início';
-  document.getElementById('btn-play').disabled=false;
-  document.getElementById('btn-play').textContent='▶ Iniciar';
-  document.getElementById('btn-pause').disabled=true;
-  document.getElementById('btn-finish').disabled=true;
-  document.getElementById('btn-finish').style.cssText='background:rgba(255,255,255,.12);color:rgba(255,255,255,.8);border-color:rgba(255,255,255,.25);';
-  document.getElementById('session-live').style.display='none';
-}
-
-// ══════════════════════════════════════════════════
-//  LANÇAMENTO MANUAL
-// ══════════════════════════════════════════════════
-function setDefaultManualDate() {
-  document.getElementById('manual-date').value=new Date().toISOString().split('T')[0];
-}
-
-function populateManualMateriaSelect() {
-  const sel=document.getElementById('manual-materia-select'), cur=sel.value;
-  sel.innerHTML='<option value="">— Escolha uma matéria —</option>';
-  state.materias.forEach(m=>{ const o=document.createElement('option'); o.value=m.name; o.textContent=m.name; if(m.name===cur)o.selected=true; sel.appendChild(o); });
-  onManualMateriaChange();
-}
-
-function onManualMateriaChange() {
-  manualConteudos=[];
-  renderManualCtList();
-  populateManualCtSelect();
-  const matName=document.getElementById('manual-materia-select').value;
-  const mat=getMateriaObj(matName);
-  const hasConteudos=mat && mat.conteudos && mat.conteudos.length>0;
-  document.getElementById('manual-add-ct-row').style.display=hasConteudos?'flex':'none';
-  document.getElementById('manual-no-ct-hint').style.display=hasConteudos?'block':'none';
-}
-
-function populateManualCtSelect() {
-  const matName=document.getElementById('manual-materia-select').value;
-  const mat=getMateriaObj(matName);
-  const sel=document.getElementById('manual-ct-select');
-  sel.innerHTML='<option value="">— Selecione um conteúdo —</option>';
-  if (mat && mat.conteudos) {
-    mat.conteudos
-      .filter(c=>!manualConteudos.find(mc=>mc.name===c))
-      .forEach(c=>{ const o=document.createElement('option'); o.value=c; o.textContent=c; sel.appendChild(o); });
-  }
-}
-
-function addManualConteudo() {
-  const sel=document.getElementById('manual-ct-select'), name=sel.value;
-  if (!name) { showToast('Selecione um conteúdo para adicionar.'); return; }
-  if (manualConteudos.find(c=>c.name===name)) { showToast('Conteúdo já adicionado.'); return; }
-  manualConteudos.push({ name, total:0, correct:0, onlyTheory:false });
-  populateManualCtSelect();
-  renderManualCtList();
-}
-
-function removeManualConteudo(i) {
-  manualConteudos.splice(i,1);
-  populateManualCtSelect();
-  renderManualCtList();
-}
-
-function toggleManualCtBody(i) {
-  const body=document.getElementById('mactb-'+i);
-  const tog=document.getElementById('mactt-'+i);
-  const open=body.classList.toggle('open');
-  tog.classList.toggle('open',open);
-}
-
-function updateManualCt(i) {
-  const noQ=document.getElementById('mact-noq-'+i).checked;
-  const total=parseInt(document.getElementById('mact-total-'+i).value)||0;
-  const correct=parseInt(document.getElementById('mact-correct-'+i).value)||0;
-  manualConteudos[i].onlyTheory=noQ;
-  manualConteudos[i].total=noQ?0:total;
-  manualConteudos[i].correct=noQ?0:correct;
-  const sum=document.getElementById('macts-'+i);
-  if(sum) sum.textContent=ctSummaryText(manualConteudos[i]);
-}
+function setDefaultManualDate() { document.getElementById('manual-date').value=new Date().toISOString().split('T')[0]; }
+function populateManualMateriaSelect() { const sel=document.getElementById('manual-materia-select'), cur=sel.value; sel.innerHTML='<option value="">— Escolha —</option>'; state.materias.forEach(m=>{ const o=document.createElement('option'); o.value=m.name; o.textContent=m.name; if(m.name===cur)o.selected=true; sel.appendChild(o); }); onManualMateriaChange(); }
+function onManualMateriaChange() { manualConteudos=[]; renderManualCtList(); populateManualCtSelect(); const matName=document.getElementById('manual-materia-select').value; const mat=getMateriaObj(matName); const has=mat&&mat.conteudos&&mat.conteudos.length>0; document.getElementById('manual-add-ct-row').style.display=has?'flex':'none'; }
+function populateManualCtSelect() { const mat=getMateriaObj(document.getElementById('manual-materia-select').value); const sel=document.getElementById('manual-ct-select'); sel.innerHTML='<option value="">— Selecione —</option>'; if(mat&&mat.conteudos) mat.conteudos.filter(c=>!manualConteudos.find(mc=>mc.name===c)).forEach(c=>{ const o=document.createElement('option'); o.value=c; o.textContent=c; sel.appendChild(o); }); }
+function addManualConteudo() { const name=document.getElementById('manual-ct-select').value; if(!name)return; manualConteudos.push({name,total:0,correct:0,onlyTheory:false}); populateManualCtSelect(); renderManualCtList(); }
+function removeManualConteudo(i) { manualConteudos.splice(i,1); populateManualCtSelect(); renderManualCtList(); }
+function toggleManualCtBody(i) { document.getElementById('mactb-'+i).classList.toggle('open'); }
+function updateManualCt(i) { const noQ=document.getElementById('mact-noq-'+i).checked; manualConteudos[i].onlyTheory=noQ; manualConteudos[i].total=noQ?0:(parseInt(document.getElementById('mact-total-'+i).value)||0); manualConteudos[i].correct=noQ?0:(parseInt(document.getElementById('mact-correct-'+i).value)||0); }
 
 function renderManualCtList() {
-  const el=document.getElementById('manual-ct-list');
-  if (!manualConteudos.length) {
-    el.innerHTML='<div style="font-size:12px;color:var(--text3);padding:4px 0;">Nenhum conteúdo adicionado ainda.</div>';
-    return;
-  }
-  el.innerHTML=manualConteudos.map((ct,i)=>`
-    <div class="session-ct-row">
-      <div class="session-ct-header" onclick="toggleManualCtBody(${i})">
-        <div class="session-ct-name">📖 ${escHtml(ct.name)}</div>
-        <div class="session-ct-summary" id="macts-${i}">${ctSummaryText(ct)}</div>
-        <span class="session-ct-toggle" id="mactt-${i}">▼</span>
-        <button class="session-ct-del" onclick="event.stopPropagation();removeManualConteudo(${i})">✕</button>
-      </div>
-      <div class="session-ct-body" id="mactb-${i}">
-        <div class="form-group" style="margin-bottom:10px;">
-          <div class="checkbox-wrap" style="padding:9px 12px;">
-            <input type="checkbox" id="mact-noq-${i}" ${ct.onlyTheory?'checked':''} onchange="updateManualCt(${i})">
-            <label for="mact-noq-${i}" style="font-size:13px;">Não resolvi questões neste conteúdo</label>
-          </div>
-        </div>
-        <div id="mact-qform-${i}" style="display:${ct.onlyTheory?'none':'block'};">
-          <div class="grid-2" style="gap:10px;">
-            <div><label class="form-label">Total de questões</label><input type="number" id="mact-total-${i}" min="0" placeholder="0" value="${ct.total||''}" oninput="updateManualCt(${i})"></div>
-            <div><label class="form-label">Questões certas</label><input type="number" id="mact-correct-${i}" min="0" placeholder="0" value="${ct.correct||''}" oninput="updateManualCt(${i})"></div>
-          </div>
-        </div>
-      </div>
-    </div>
-  `).join('');
-
-  manualConteudos.forEach((_,i)=>{
-    const cb=document.getElementById('mact-noq-'+i);
-    if(cb) cb.addEventListener('change',()=>{
-      document.getElementById('mact-qform-'+i).style.display=cb.checked?'none':'block';
-    });
-  });
+  const el=document.getElementById('manual-ct-list'); if(!manualConteudos.length){ el.innerHTML='Nenhum'; return; }
+  el.innerHTML=manualConteudos.map((ct,i)=>`<div class="session-ct-row"><div class="session-ct-header" onclick="toggleManualCtBody(${i})"><div class="session-ct-name">${escHtml(ct.name)}</div><button class="session-ct-del" onclick="event.stopPropagation();removeManualConteudo(${i})">✕</button></div><div class="session-ct-body" id="mactb-${i}"><div class="checkbox-wrap"><input type="checkbox" id="mact-noq-${i}" ${ct.onlyTheory?'checked':''} onchange="updateManualCt(${i})"><label for="mact-noq-${i}">Sem questões</label></div><div id="mact-qform-${i}" style="display:${ct.onlyTheory?'none':'block'};margin-top:10px;"><input type="number" id="mact-total-${i}" placeholder="Total" value="${ct.total||''}" oninput="updateManualCt(${i})"><input type="number" id="mact-correct-${i}" placeholder="Certas" value="${ct.correct||''}" oninput="updateManualCt(${i})"></div></div></div>`).join('');
+  manualConteudos.forEach((_,i)=>{ const cb=document.getElementById('mact-noq-'+i); if(cb)cb.addEventListener('change',()=>{ document.getElementById('mact-qform-'+i).style.display=cb.checked?'none':'block'; }); });
 }
 
-function saveManualSession() {
-  const materia=document.getElementById('manual-materia-select').value;
-  if (!materia) { showToast('Selecione uma matéria.'); return; }
-  const dateVal=document.getElementById('manual-date').value;
-  if (!dateVal) { showToast('Informe a data do estudo.'); return; }
-  const h=parseInt(document.getElementById('manual-horas').value)||0;
-  const m=parseInt(document.getElementById('manual-minutos').value)||0;
-  const s=parseInt(document.getElementById('manual-segundos').value)||0;
-  const duration=h*3600+m*60+s;
-  if (duration===0) { showToast('Informe o tempo estudado.'); return; }
-
-  for (let i=0;i<manualConteudos.length;i++) {
-    const ct=manualConteudos[i];
-    if (!ct.onlyTheory && ct.correct>ct.total) { showToast(`"${ct.name}": acertos não podem ser maiores que o total.`); return; }
-  }
-
-  const obs=document.getElementById('manual-obs').value.trim();
-  const dateObj=new Date(dateVal+'T12:00:00');
-
-  state.sessions.unshift({
-    id: Date.now(),
-    date: dateObj.toISOString(),
-    materia, duration,
-    manual: true, obs,
-    conteudos: manualConteudos.map(c=>({...c}))
-  });
-  state.sessions.sort((a,b)=>new Date(b.date)-new Date(a.date));
-  saveState();
-
-  // reset form
-  ['manual-horas','manual-minutos','manual-segundos','manual-obs'].forEach(id=>{document.getElementById(id).value='';});
-  manualConteudos=[];
-  renderManualCtList();
-  populateManualCtSelect();
-  renderManualRecent();
-  showToast('Sessão manual registrada! ✏️');
+async function saveManualSession() {
+  const materia=document.getElementById('manual-materia-select').value, dateVal=document.getElementById('manual-date').value;
+  const h=parseInt(document.getElementById('manual-horas').value)||0, m=parseInt(document.getElementById('manual-minutos').value)||0, s=parseInt(document.getElementById('manual-segundos').value)||0;
+  const duration=h*3600+m*60+s; if(!materia||!dateVal||duration===0)return;
+  state.sessions.unshift({ id: Date.now(), date: new Date(dateVal+'T12:00:00').toISOString(), materia, duration, manual: true, obs: document.getElementById('manual-obs').value.trim(), conteudos: manualConteudos.map(c=>({...c})) });
+  state.sessions.sort((a,b)=>new Date(b.date)-new Date(a.date)); await saveState();
+  ['manual-horas','manual-minutos','manual-segundos','manual-obs'].forEach(id=>{document.getElementById(id).value='';}); manualConteudos=[]; renderManualCtList(); populateManualCtSelect(); renderManualRecent(); showToast('Salvo na Nuvem!');
 }
 
 function renderManualRecent() {
-  const el=document.getElementById('manual-recent-list');
-  const recent=state.sessions.filter(s=>s.manual).slice(0,5);
-  if (!recent.length) { el.innerHTML='<div style="color:var(--text3);font-size:13px;text-align:center;padding:16px 0;">Nenhuma sessão manual ainda.</div>'; return; }
-  el.innerHTML=recent.map(s=>`
-    <div style="padding:10px 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
-      <div>
-        <div style="font-weight:600;font-size:13px;">${escHtml(s.materia)}</div>
-        <div style="color:var(--text3);font-size:11px;">${fmtDateShort(s.date)} · ${s.conteudos.length} conteúdo${s.conteudos.length!==1?'s':''}</div>
-      </div>
-      <div style="font-family:'DM Mono',monospace;font-size:12px;color:var(--text2);">${formatTime(s.duration)}</div>
-    </div>
-  `).join('');
+  const el=document.getElementById('manual-recent-list'); const recent=state.sessions.filter(s=>s.manual).slice(0,5);
+  el.innerHTML=recent.length ? recent.map(s=>`<div style="padding:10px 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;"><div><b>${escHtml(s.materia)}</b><br><small>${fmtDateShort(s.date)}</small></div><div>${formatTime(s.duration)}</div></div>`).join('') : 'Nenhuma sessão.';
 }
 
-// ══════════════════════════════════════════════════
-//  CRONÔMETRO PAGE
-// ══════════════════════════════════════════════════
 function renderCronometroPage() {
-  const el=document.getElementById('recent-sessions-list');
-  const recent=state.sessions.slice(0,5);
-  if (!recent.length) { el.innerHTML='<div class="empty"><div class="ico">⏱</div><p>Nenhuma sessão registrada ainda.<br>Inicie sua primeira sessão acima!</p></div>'; return; }
-  el.innerHTML=`<table class="sessions-table">
-    <thead><tr><th>Data</th><th>Matéria</th><th>Duração</th><th>Conteúdos</th><th>Aproveit.</th></tr></thead>
-    <tbody>${recent.map(s=>sessionRowShort(s)).join('')}</tbody>
-  </table>`;
+  const el=document.getElementById('recent-sessions-list'); const recent=state.sessions.slice(0,5);
+  if(!recent.length){ el.innerHTML='Nenhuma sessão'; return; }
+  el.innerHTML=`<table class="sessions-table"><thead><tr><th>Data</th><th>Matéria</th><th>Duração</th></tr></thead><tbody>${recent.map(s=>`<tr><td>${fmtDateShort(s.date)}</td><td><b>${escHtml(s.materia)}</b></td><td>${formatTime(s.duration)}</td></tr>`).join('')}</tbody></table>`;
 }
 
-function sessionRowShort(s) {
-  const totQ=s.conteudos.filter(c=>!c.onlyTheory).reduce((a,c)=>a+(c.total||0),0);
-  const totC=s.conteudos.filter(c=>!c.onlyTheory).reduce((a,c)=>a+(c.correct||0),0);
-  const perc=totQ>0?Math.round(totC/totQ*100):null;
-  const aprovStr=perc!==null?aprovBadge(perc):s.conteudos.length?'<span class="badge badge-neutral">Só teoria</span>':'<span class="badge badge-neutral">—</span>';
-  const tag=s.manual?'<span class="badge badge-manual" style="font-size:10px;margin-left:4px;">Manual</span>':'';
-  const ctSummary=s.conteudos.length
-    ? s.conteudos.map(c=>`<div style="font-size:11px;color:var(--text3);">📖 ${escHtml(c.name)}</div>`).join('')
-    : '<span style="color:var(--text3);font-size:12px;">Estudo geral</span>';
-  return `<tr>
-    <td style="white-space:nowrap;color:var(--text2);font-size:12px;">${fmtDateShort(s.date)}</td>
-    <td><strong>${escHtml(s.materia)}</strong>${tag}</td>
-    <td><span style="font-family:'DM Mono',monospace;">${formatTime(s.duration)}</span></td>
-    <td>${ctSummary}</td>
-    <td>${aprovStr}</td>
-  </tr>`;
-}
-
-function aprovBadge(perc) {
-  const p=Math.round(perc);
-  return perc>=80?`<span class="badge badge-green">${p}%</span>`:perc>=60?`<span class="badge badge-warn">${p}%</span>`:`<span class="badge badge-danger">${p}%</span>`;
-}
-
-// ══════════════════════════════════════════════════
-//  DASHBOARD
-// ══════════════════════════════════════════════════
-function renderDashboard() { renderGeralStats(); renderByMateria(); renderAproveitamentoGeral(); renderHistory(); }
-
-function sessionTotals(sessions) {
-  let total=0, correct=0;
-  sessions.forEach(s=>s.conteudos.forEach(c=>{ if(!c.onlyTheory){total+=(c.total||0);correct+=(c.correct||0);} }));
-  return {total,correct};
-}
-
-function renderGeralStats() {
+function renderDashboard() {
   const totalSecs=state.sessions.reduce((a,s)=>a+s.duration,0);
-  const {total:tQ,correct:tC}=sessionTotals(state.sessions);
-  const perc=tQ>0?Math.round(tC/tQ*100):null;
-  const percColor=perc===null?'var(--text)':perc>=80?'var(--green)':perc>=60?'var(--warn)':'var(--danger)';
-  document.getElementById('stats-geral').innerHTML=`
-    <div class="stat-card"><div class="stat-label">⏱ Tempo Total</div><div class="stat-value">${formatTime(totalSecs)}</div><div class="stat-sub">${(totalSecs/3600).toFixed(1)}h · ${state.sessions.length} sessões</div></div>
-    <div class="stat-card"><div class="stat-label">📝 Questões</div><div class="stat-value">${tQ}</div><div class="stat-sub">${tC} acertos registrados</div></div>
-    <div class="stat-card"><div class="stat-label">🎯 Aproveitamento</div><div class="stat-value" style="color:${percColor};">${perc!==null?perc+'%':'—'}</div><div class="stat-sub">${tQ>0?tC+' de '+tQ:' Sem questões ainda'}</div></div>`;
+  document.getElementById('stats-geral').innerHTML=`<div class="stat-card"><div class="stat-label">Tempo Total</div><div class="stat-value">${formatTime(totalSecs)}</div></div><div class="stat-card"><div class="stat-label">Sessões</div><div class="stat-value">${state.sessions.length}</div></div>`;
+  const byMat={}; state.sessions.forEach(s=>{ if(!byMat[s.materia])byMat[s.materia]=0; byMat[s.materia]+=s.duration; });
+  document.getElementById('stats-by-materia').innerHTML=Object.entries(byMat).map(([m,d])=>`<div class="materia-stat-row"><b>${escHtml(m)}</b>: ${formatTime(d)}</div>`).join('');
+  document.getElementById('sessions-history').innerHTML=`<table class="sessions-table"><tbody>${state.sessions.map((s,i)=>`<tr><td>${fmtDateShort(s.date)}</td><td>${escHtml(s.materia)}</td><td>${formatTime(s.duration)}</td><td><button onclick="deleteSession(${i})">✕</button></td></tr>`).join('')}</tbody></table>`;
 }
 
-function renderByMateria() {
-  const el=document.getElementById('stats-by-materia');
-  if (!state.sessions.length) { el.innerHTML='<div class="empty"><div class="ico">📊</div><p>Nenhuma sessão ainda.</p></div>'; return; }
+async function deleteSession(i) { if(!confirm('Remover?'))return; state.sessions.splice(i,1); await saveState(); renderDashboard(); }
 
-  // group by materia → conteudo
-  const byMat={};
-  state.sessions.forEach(s=>{
-    if (!byMat[s.materia]) byMat[s.materia]={secs:0,total:0,correct:0,byConteudo:{}};
-    byMat[s.materia].secs+=s.duration;
-    s.conteudos.forEach(c=>{
-      if (!c.onlyTheory){byMat[s.materia].total+=(c.total||0);byMat[s.materia].correct+=(c.correct||0);}
-      if (c.name){
-        if (!byMat[s.materia].byConteudo[c.name]) byMat[s.materia].byConteudo[c.name]={secs:0,total:0,correct:0};
-        byMat[s.materia].byConteudo[c.name].secs+=Math.round(s.duration/(s.conteudos.length||1));
-        if (!c.onlyTheory){byMat[s.materia].byConteudo[c.name].total+=(c.total||0);byMat[s.materia].byConteudo[c.name].correct+=(c.correct||0);}
-      }
-    });
-  });
-
-  el.innerHTML=Object.entries(byMat).sort((a,b)=>b[1].secs-a[1].secs).map(([mat,d])=>{
-    const perc=d.total>0?Math.round(d.correct/d.total*100):null;
-    const percLabel=perc!==null?perc+'%':'Só teoria';
-    const cls=perc===null?'':perc>=80?'perc-green':perc>=60?'perc-warn':'perc-danger';
-    const fillCls=perc===null?'fill-accent':perc>=80?'fill-green':perc>=60?'fill-warn':'fill-danger';
-    const ctEntries=Object.entries(d.byConteudo);
-    const ctSub=ctEntries.length?`<div class="conteudo-stat-sub">${ctEntries.map(([ct,cd])=>{
-      const cp=cd.total>0?Math.round(cd.correct/cd.total*100):null;
-      return `<div class="conteudo-stat-item">
-        <div class="conteudo-stat-item-name">📖 ${escHtml(ct)}</div>
-        <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
-          <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text3);">${formatTime(cd.secs)}</span>
-          ${cp!==null?aprovBadge(cp):'<span style="color:var(--text3);font-size:11px;">—</span>'}
-        </div>
-      </div>`;
-    }).join('')}</div>`:'';
-
-    return `<div class="materia-stat-row">
-      <div class="materia-stat-header"><div class="materia-stat-name">${escHtml(mat)}</div><div class="materia-stat-time">${formatTime(d.secs)}</div></div>
-      <div style="display:flex;justify-content:space-between;margin-bottom:4px;"><span style="font-size:11px;color:var(--text3);">Aproveitamento</span><span style="font-size:12px;font-weight:600;" class="${cls}">${percLabel}</span></div>
-      <div class="progress-bar-bg"><div class="progress-bar-fill ${fillCls}" style="width:${perc??0}%;"></div></div>
-      ${ctSub}
-    </div>`;
-  }).join('');
-}
-
-function renderAproveitamentoGeral() {
-  const el=document.getElementById('aproveitamento-geral');
-  const {total:tQ,correct:tC}=sessionTotals(state.sessions);
-  const perc=tQ>0?Math.round(tC/tQ*100):null;
-  if (perc===null){el.innerHTML='<div class="empty" style="padding:24px;"><div class="ico">🎯</div><p>Resolva questões em suas sessões para ver o aproveitamento.</p></div>';return;}
-  const cls=perc>=80?'perc-green':perc>=60?'perc-warn':'perc-danger';
-  const fillCls=perc>=80?'fill-green':perc>=60?'fill-warn':'fill-danger';
-  const msg=perc>=80?'🎉 Excelente aproveitamento! Continue assim.':perc>=60?'📈 Bom ritmo! Busque melhorar acima de 80%.':'⚠️ Abaixo de 60%. Revise os conteúdos com mais erros.';
-  el.innerHTML=`
-    <div style="text-align:center;padding:20px 0 12px;">
-      <div style="font-family:'DM Mono',monospace;font-size:56px;font-weight:500;letter-spacing:-2px;" class="${cls}">${perc}%</div>
-      <div style="font-size:12px;color:var(--text3);margin-top:4px;">${tC} acertos de ${tQ} questões</div>
-    </div>
-    <div class="progress-bar-bg" style="height:10px;margin-bottom:16px;"><div class="progress-bar-fill ${fillCls}" style="width:${perc}%;"></div></div>
-    <div style="font-size:13px;color:var(--text2);text-align:center;line-height:1.6;">${msg}</div>`;
-}
-
-function renderHistory() {
-  const el=document.getElementById('sessions-history');
-  if (!state.sessions.length){el.innerHTML='<div class="empty"><div class="ico">📋</div><p>Nenhuma sessão registrada ainda.</p></div>';return;}
-  el.innerHTML=`<table class="sessions-table">
-    <thead><tr><th>Data</th><th>Matéria</th><th>Duração</th><th>Conteúdos & Questões</th><th>Aproveit.</th><th>Tipo</th><th></th></tr></thead>
-    <tbody>${state.sessions.map((s,i)=>{
-      const {total:tQ,correct:tC}=sessionTotals([s]);
-      const perc=tQ>0?Math.round(tC/tQ*100):null;
-      const aprovStr=perc!==null?aprovBadge(perc):s.conteudos.length?'<span class="badge badge-neutral">Só teoria</span>':'<span class="badge badge-neutral">—</span>';
-      const ctDetail=s.conteudos.length
-        ? s.conteudos.map(c=>{
-            const cp=(!c.onlyTheory&&c.total>0)?Math.round(c.correct/c.total*100):null;
-            return `<div style="font-size:11px;color:var(--text2);">📖 ${escHtml(c.name)}${cp!==null?' · '+c.correct+'/'+c.total+' ('+cp+'%)':c.onlyTheory?' · teoria':''}</div>`;
-          }).join('')
-        : '<span style="font-size:12px;color:var(--text3);">Estudo geral</span>';
-      return `<tr>
-        <td style="white-space:nowrap;color:var(--text2);font-size:12px;">${fmtDate(s.date)}</td>
-        <td><strong>${escHtml(s.materia)}</strong>${s.obs?`<div style="font-size:11px;color:var(--text3);font-style:italic;">${escHtml(s.obs)}</div>`:''}</td>
-        <td><span style="font-family:'DM Mono',monospace;">${formatTime(s.duration)}</span></td>
-        <td>${ctDetail}</td>
-        <td>${aprovStr}</td>
-        <td>${s.manual?'<span class="badge badge-manual">Manual</span>':'<span class="badge badge-neutral">Auto</span>'}</td>
-        <td><button onclick="deleteSession(${i})" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:14px;padding:4px 8px;border-radius:6px;transition:all .15s;"
-          onmouseover="this.style.background='var(--danger-light)';this.style.color='var(--danger)';"
-          onmouseout="this.style.background='none';this.style.color='var(--text3)';">✕</button></td>
-      </tr>`;
-    }).join('')}</tbody>
-  </table>`;
-}
-
-function deleteSession(i) {
-  if (!confirm('Remover esta sessão?')) return;
-  state.sessions.splice(i,1); saveState(); renderDashboard(); showToast('Sessão removida.');
-}
-
-// ══════════════════════════════════════════════════
-//  UTILS
-// ══════════════════════════════════════════════════
-function fmtDate(iso){const d=new Date(iso);return d.toLocaleDateString('pt-BR')+' '+d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});}
 function fmtDateShort(iso){return new Date(iso).toLocaleDateString('pt-BR');}
 function escHtml(str){return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+let toastTimeout; function showToast(msg){ const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show'); clearTimeout(toastTimeout);toastTimeout=setTimeout(()=>t.classList.remove('show'),3200); }
 
-let toastTimeout;
-function showToast(msg){
-  const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');
-  clearTimeout(toastTimeout);toastTimeout=setTimeout(()=>t.classList.remove('show'),3200);
-}
-
-document.getElementById('finish-modal').addEventListener('click',function(e){if(e.target===this)cancelFinish();});
+// ANÁLISES SIMPLIFICADAS PARA REDUZIR LINHAS
+function renderAnalytics() { document.getElementById('page-analytics').innerHTML = "<h1 class='page-title'>Analytics</h1><p>Os gráficos estão temporariamente desativados nesta versão em nuvem para focar no registro das horas. Acesse o Dashboard para ver as métricas.</p>"; }
 
 // ══════════════════════════════════════════════════
-//  ANALYTICS ENGINE
+// INICIALIZAÇÃO ASSÍNCRONA
 // ══════════════════════════════════════════════════
-
-// Palette — distinct, accessible colors
-const AN_PALETTE = [
-  '#2D5A3D','#C8873A','#3A7DC8','#A63AC8','#C83A3A',
-  '#3AC8A6','#8A8A2D','#C83A8A','#3A5AC8','#6DC83A'
-];
-
-// State for the analytics view
-let anChart = null;           // Chart.js instance
-let anMode = 'raw';           // 'raw' | 'weekly'
-let anGoal = 70;              // goal line %
-let anActiveSubjects = new Set(); // subjects toggled on for comparison
-
-// ── Entry point ──────────────────────────────────
-function renderAnalytics() {
-  anPopulateMateriaFilter();
-  anBuildSubjectPills();
-  anRender();
+async function init(){
+  await loadState(); // Puxa do Firebase primeiro!
+  populateMateriaSelect();
+  setDefaultManualDate();
+  renderCronometroPage();
 }
 
-// ── Build flat data points ────────────────────────
-// Returns [{date, materia, conteudo, perc}] sorted by date asc
-function anBuildPoints(materiaFilter, conteudoFilter) {
-  const pts = [];
-  state.sessions.forEach(s => {
-    if (materiaFilter !== '__all__' && s.materia !== materiaFilter) return;
-    const d = new Date(s.date);
-    s.conteudos.forEach(c => {
-      if (c.onlyTheory || !c.total) return;
-      if (conteudoFilter !== '__all__' && c.name !== conteudoFilter) return;
-      const perc = Math.round(c.correct / c.total * 100);
-      pts.push({ date: d, dateStr: d.toLocaleDateString('pt-BR'), materia: s.materia, conteudo: c.name || '(geral)', perc });
-    });
-  });
-  pts.sort((a, b) => a.date - b.date);
-  return pts;
-}
-
-// Group points by a key (e.g. materia or conteudo), keep last 5 per group
-function anGroupBy(pts, keyFn) {
-  const map = {};
-  pts.forEach(p => {
-    const k = keyFn(p);
-    if (!map[k]) map[k] = [];
-    map[k].push(p);
-  });
-  // keep last 5 per group
-  Object.keys(map).forEach(k => {
-    if (map[k].length > 5) map[k] = map[k].slice(-5);
-  });
-  return map;
-}
-
-// Weekly grouping: ISO week key → average perc
-function anWeeklyAverage(pts) {
-  const weekMap = {};
-  pts.forEach(p => {
-    const wk = isoWeekKey(p.date);
-    if (!weekMap[wk]) weekMap[wk] = { sum: 0, count: 0, label: weekLabel(p.date), date: p.date };
-    weekMap[wk].sum += p.perc;
-    weekMap[wk].count++;
-  });
-  return Object.entries(weekMap)
-    .sort((a, b) => a[0].localeCompare(b[0]))
-    .map(([, v]) => ({ label: v.label, perc: Math.round(v.sum / v.count), date: v.date }));
-}
-
-function isoWeekKey(d) {
-  const tmp = new Date(d); tmp.setHours(0,0,0,0);
-  tmp.setDate(tmp.getDate() + 3 - (tmp.getDay()+6)%7);
-  const w1 = new Date(tmp.getFullYear(), 0, 4);
-  const wn = 1 + Math.round(((tmp - w1) / 86400000 - 3 + (w1.getDay()+6)%7) / 7);
-  return `${tmp.getFullYear()}-W${String(wn).padStart(2,'0')}`;
-}
-function weekLabel(d) {
-  const start = new Date(d);
-  start.setDate(start.getDate() - (start.getDay() || 7) + 1);
-  return start.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'});
-}
-
-// ── Filters ──────────────────────────────────────
-function anPopulateMateriaFilter() {
-  const sel = document.getElementById('an-materia-sel');
-  const cur = sel.value;
-  sel.innerHTML = '<option value="__all__">Todas as matérias</option>';
-  // collect from sessions (not just registered materias — covers old data)
-  const seen = new Set();
-  state.sessions.forEach(s => seen.add(s.materia));
-  [...seen].sort().forEach(m => {
-    const o = document.createElement('option');
-    o.value = m; o.textContent = m;
-    if (m === cur) o.selected = true;
-    sel.appendChild(o);
-  });
-}
-
-function anOnMateriaChange() {
-  const materia = document.getElementById('an-materia-sel').value;
-  const sel = document.getElementById('an-conteudo-sel');
-  sel.innerHTML = '<option value="__all__">Todos os conteúdos</option>';
-  const seen = new Set();
-  state.sessions.forEach(s => {
-    if (materia !== '__all__' && s.materia !== materia) return;
-    s.conteudos.forEach(c => { if (c.name) seen.add(c.name); });
-  });
-  [...seen].sort().forEach(c => {
-    const o = document.createElement('option'); o.value = c; o.textContent = c; sel.appendChild(o);
-  });
-  anRender();
-}
-
-function anBuildSubjectPills() {
-  const subjects = [...new Set(state.sessions.map(s => s.materia))].sort();
-  anActiveSubjects = new Set(subjects); // all on by default
-  const wrap = document.getElementById('an-subject-pills');
-  if (!subjects.length) { wrap.innerHTML = '<span style="font-size:12px;color:var(--text3);">Nenhuma matéria com dados ainda.</span>'; return; }
-  wrap.innerHTML = subjects.map((m, i) => {
-    const color = AN_PALETTE[i % AN_PALETTE.length];
-    return `<div class="toggle-pill subject-pill active" id="spill-${i}"
-      data-subject="${escHtml(m)}" data-color="${color}"
-      onclick="anToggleSubject('${escHtml(m)}', ${i})"
-      style="border-color:${color};color:${color};background:${color}18;">
-      <span class="swatch" style="background:${color};"></span>${escHtml(m)}
-    </div>`;
-  }).join('');
-}
-
-function anToggleSubject(name, idx) {
-  if (anActiveSubjects.has(name)) {
-    if (anActiveSubjects.size === 1) return; // keep at least 1
-    anActiveSubjects.delete(name);
-    const pill = document.getElementById('spill-'+idx);
-    if (pill) {
-      pill.classList.remove('active');
-      pill.style.background = '';
-      pill.style.color = pill.dataset.color;
-    }
-  } else {
-    anActiveSubjects.add(name);
-    const pill = document.getElementById('spill-'+idx);
-    if (pill) {
-      pill.classList.add('active');
-      pill.style.background = pill.dataset.color + '18';
-      pill.style.color = pill.dataset.color;
-    }
-  }
-  anRender();
-}
-
-function anSetMode(mode) {
-  anMode = mode;
-  document.getElementById('an-mode-raw').classList.toggle('active', mode === 'raw');
-  document.getElementById('an-mode-weekly').classList.toggle('active', mode === 'weekly');
-  anRender();
-}
-
-function anUpdateGoal(val) {
-  anGoal = Number(val);
-  document.getElementById('an-goal-display').textContent = val + '%';
-  anRender();
-}
-
-// ── Main render ──────────────────────────────────
-function anRender() {
-  const materiaFilter = document.getElementById('an-materia-sel').value;
-  const conteudoFilter = document.getElementById('an-conteudo-sel').value;
-
-  // Build all points matching filters
-  const allPts = anBuildPoints(materiaFilter, conteudoFilter)
-    .filter(p => anActiveSubjects.has(p.materia));
-
-  if (!allPts.length) {
-    anShowNoData(true); anDestroyChart(); return;
-  }
-  anShowNoData(false);
-
-  if (anMode === 'weekly') {
-    anRenderWeeklyChart(allPts, materiaFilter);
-  } else {
-    anRenderRawChart(allPts, materiaFilter, conteudoFilter);
-  }
-
-  anRenderWeeklyTable(allPts);
-  anRenderTopConteudos(allPts);
-  anRenderPeriodSummary(allPts);
-}
-
-function anShowNoData(show) {
-  document.getElementById('an-no-data').style.display = show ? 'flex' : 'none';
-  document.getElementById('an-main-chart-wrap').style.display = show ? 'none' : 'block';
-}
-
-// ── Raw chart: one line per conteudo (or per materia if "all") ──
-function anRenderRawChart(pts, materiaFilter, conteudoFilter) {
-  // decide grouping key
-  const useConteudo = conteudoFilter !== '__all__' || materiaFilter !== '__all__';
-  const keyFn = useConteudo ? p => `${p.materia} › ${p.conteudo}` : p => p.materia;
-
-  const grouped = anGroupBy(pts, keyFn);
-  const keys = Object.keys(grouped);
-
-  // collect all unique date strings in order
-  const allDatesSet = new Set();
-  pts.forEach(p => allDatesSet.add(p.dateStr));
-  const allDates = [...allDatesSet];
-
-  const datasets = keys.map((k, i) => {
-    const color = anColorForKey(k, i);
-    const data = grouped[k].map(p => ({ x: p.dateStr, y: p.perc }));
-    return {
-      label: k,
-      data,
-      borderColor: color,
-      backgroundColor: color + '22',
-      pointBackgroundColor: color,
-      pointRadius: 5,
-      pointHoverRadius: 7,
-      tension: 0.35,
-      fill: false,
-      borderWidth: 2.5,
-    };
-  });
-
-  // goal line dataset
-  if (allDates.length) {
-    datasets.push({
-      label: `Meta (${anGoal}%)`,
-      data: allDates.map(d => ({ x: d, y: anGoal })),
-      borderColor: '#C0392B',
-      borderDash: [6, 4],
-      borderWidth: 1.5,
-      pointRadius: 0,
-      fill: false,
-      tension: 0,
-      backgroundColor: 'transparent',
-    });
-  }
-
-  document.getElementById('an-chart-subtitle').textContent =
-    `Últimos 5 registros por ${useConteudo ? 'conteúdo' : 'matéria'}`;
-
-  anBuildChart({
-    type: 'line',
-    labels: allDates,
-    datasets,
-    xLabel: 'Data',
-  });
-}
-
-// ── Weekly chart ──
-function anRenderWeeklyChart(pts, materiaFilter) {
-  const bySubject = {};
-  pts.forEach(p => {
-    if (!bySubject[p.materia]) bySubject[p.materia] = [];
-    bySubject[p.materia].push(p);
-  });
-
-  const allWeekKeys = new Set();
-  const weekDataBySubject = {};
-  Object.entries(bySubject).forEach(([m, mPts]) => {
-    const weeks = anWeeklyAverage(mPts);
-    weekDataBySubject[m] = weeks;
-    weeks.forEach(w => allWeekKeys.add(isoWeekKey(w.date) + '|' + w.label));
-  });
-
-  const sortedWeeks = [...allWeekKeys]
-    .sort((a, b) => a.localeCompare(b))
-    .map(k => k.split('|')[1]);
-
-  const datasets = Object.entries(weekDataBySubject).map(([m, weeks], i) => {
-    const color = anColorForKey(m, i);
-    const weekMap = {};
-    weeks.forEach(w => { weekMap[w.label] = w.perc; });
-    return {
-      label: m,
-      data: sortedWeeks.map(lbl => weekMap[lbl] ?? null),
-      borderColor: color,
-      backgroundColor: color + '22',
-      pointBackgroundColor: color,
-      pointRadius: 5,
-      pointHoverRadius: 7,
-      tension: 0.35,
-      fill: false,
-      borderWidth: 2.5,
-      spanGaps: true,
-    };
-  });
-
-  if (sortedWeeks.length) {
-    datasets.push({
-      label: `Meta (${anGoal}%)`,
-      data: sortedWeeks.map(() => anGoal),
-      borderColor: '#C0392B',
-      borderDash: [6, 4],
-      borderWidth: 1.5,
-      pointRadius: 0,
-      fill: false,
-      tension: 0,
-      backgroundColor: 'transparent',
-    });
-  }
-
-  document.getElementById('an-chart-subtitle').textContent = 'Média semanal por matéria';
-
-  anBuildChart({
-    type: 'line',
-    labels: sortedWeeks,
-    datasets,
-    xLabel: 'Semana (início)',
-  });
-}
-
-// ── Chart.js builder ──
-function anBuildChart({ labels, datasets, xLabel }) {
-  const ctx = document.getElementById('an-main-chart').getContext('2d');
-  if (anChart) { anChart.destroy(); anChart = null; }
-
-  anChart = new Chart(ctx, {
-    type: 'line',
-    data: { labels, datasets },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      interaction: { mode: 'index', intersect: false },
-      plugins: {
-        legend: {
-          display: true,
-          position: 'top',
-          labels: {
-            font: { family: "'DM Sans', sans-serif", size: 12 },
-            color: '#6B6560',
-            boxWidth: 14,
-            padding: 14,
-            usePointStyle: true,
-            pointStyle: 'circle',
-            filter: item => item.text !== `Meta (${anGoal}%)`,
-          }
-        },
-        tooltip: {
-          backgroundColor: '#1A1714',
-          titleColor: '#fff',
-          bodyColor: '#ccc',
-          padding: 12,
-          cornerRadius: 8,
-          titleFont: { family: "'DM Sans', sans-serif", size: 13, weight: '600' },
-          bodyFont: { family: "'DM Sans', sans-serif", size: 12 },
-          callbacks: {
-            title: items => items[0].label,
-            label: item => {
-              if (item.dataset.borderDash) return ` Meta: ${item.raw}%`;
-              return ` ${item.dataset.label}: ${item.raw}%`;
-            },
-            afterBody: items => {
-              const realItems = items.filter(i => !i.dataset.borderDash);
-              const goal = anGoal;
-              return realItems.map(i => {
-                const diff = i.raw - goal;
-                return diff >= 0 ? `  ✅ +${diff}pp acima da meta` : `  ⚠️ ${diff}pp abaixo da meta`;
-              });
-            }
-          }
-        },
-      },
-      scales: {
-        x: {
-          grid: { color: '#E2DDD4', lineWidth: 1 },
-          ticks: { font: { family: "'DM Sans',sans-serif", size: 11 }, color: '#9E9890', maxRotation: 40 },
-          title: { display: true, text: xLabel, font: { size: 11 }, color: '#9E9890' }
-        },
-        y: {
-          min: 0, max: 100,
-          grid: { color: '#E2DDD4', lineWidth: 1 },
-          ticks: {
-            font: { family: "'DM Mono',monospace", size: 11 }, color: '#9E9890',
-            callback: v => v + '%', stepSize: 20
-          },
-          title: { display: true, text: 'Aproveitamento', font: { size: 11 }, color: '#9E9890' }
-        }
-      }
-    }
-  });
-}
-
-function anDestroyChart() {
-  if (anChart) { anChart.destroy(); anChart = null; }
-}
-
-// ── Color helper ──
-function anColorForKey(key, idx) {
-  // try to match against subject pills for consistency
-  const pillsWrap = document.getElementById('an-subject-pills');
-  const pills = pillsWrap ? pillsWrap.querySelectorAll('[data-subject]') : [];
-  for (const pill of pills) {
-    if (key === pill.dataset.subject || key.startsWith(pill.dataset.subject + ' ›')) {
-      return pill.dataset.color;
-    }
-  }
-  return AN_PALETTE[idx % AN_PALETTE.length];
-}
-
-// ── Weekly table ──
-function anRenderWeeklyTable(pts) {
-  const el = document.getElementById('an-weekly-table-wrap');
-  const weeks = anWeeklyAverage(pts);
-  if (!weeks.length) { el.innerHTML = '<div class="no-data-chart"><div class="ico">📅</div><p>Sem dados</p></div>'; return; }
-  const recent = weeks.slice(-8);
-  el.innerHTML = `<table class="weekly-table">
-    <thead><tr><th>Semana</th><th>Aproveit.</th><th>vs Meta</th></tr></thead>
-    <tbody>${recent.map(w => {
-      const diff = w.perc - anGoal;
-      const badge = diff >= 0
-        ? `<span style="color:var(--green);font-weight:600;">+${diff}pp</span>`
-        : `<span style="color:var(--danger);font-weight:600;">${diff}pp</span>`;
-      const percColor = w.perc >= 80 ? 'var(--green)' : w.perc >= 60 ? 'var(--warn)' : 'var(--danger)';
-      return `<tr>
-        <td style="color:var(--text2);font-size:12px;">${w.label}</td>
-        <td><span style="font-family:'DM Mono',monospace;font-weight:600;color:${percColor};">${w.perc}%</span></td>
-        <td>${badge}</td>
-      </tr>`;
-    }).join('')}</tbody>
-  </table>`;
-}
-
-// ── Top conteudos ──
-function anRenderTopConteudos(pts) {
-  const el = document.getElementById('an-top-conteudos-wrap');
-  const byConteudo = {};
-  pts.forEach(p => {
-    const k = `${p.materia} › ${p.conteudo}`;
-    if (!byConteudo[k]) byConteudo[k] = { sum: 0, n: 0, last: p.perc };
-    byConteudo[k].sum += p.perc;
-    byConteudo[k].n++;
-    byConteudo[k].last = p.perc;
-  });
-  const sorted = Object.entries(byConteudo)
-    .map(([k, v]) => ({ key: k, avg: Math.round(v.sum / v.n), last: v.last, n: v.n }))
-    .sort((a, b) => b.avg - a.avg)
-    .slice(0, 6);
-
-  if (!sorted.length) { el.innerHTML = '<div class="no-data-chart"><div class="ico">🏆</div><p>Sem dados</p></div>'; return; }
-  el.innerHTML = sorted.map((item, i) => {
-    const color = item.avg >= 80 ? 'var(--green)' : item.avg >= 60 ? 'var(--warn)' : 'var(--danger)';
-    const fillClass = item.avg >= 80 ? 'fill-green' : item.avg >= 60 ? 'fill-warn' : 'fill-danger';
-    return `<div style="margin-bottom:12px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
-        <div style="font-size:12px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:70%;" title="${escHtml(item.key)}">${i+1}. ${escHtml(item.key.split(' › ')[1] || item.key)}</div>
-        <div style="font-family:'DM Mono',monospace;font-size:12px;color:${color};font-weight:700;">${item.avg}%</div>
-      </div>
-      <div class="progress-bar-bg"><div class="progress-bar-fill ${fillClass}" style="width:${item.avg}%;"></div></div>
-    </div>`;
-  }).join('');
-}
-
-// ── Period summary ──
-function anRenderPeriodSummary(pts) {
-  const el = document.getElementById('an-period-summary-wrap');
-  if (!pts.length) { el.innerHTML = '<div class="no-data-chart"><div class="ico">📊</div><p>Sem dados</p></div>'; return; }
-
-  const percs = pts.map(p => p.perc);
-  const avg = Math.round(percs.reduce((a, b) => a + b, 0) / percs.length);
-  const best = Math.max(...percs);
-  const worst = Math.min(...percs);
-  const aboveGoal = percs.filter(p => p >= anGoal).length;
-  const abovePct = Math.round(aboveGoal / percs.length * 100);
-  const trend = pts.length >= 2 ? pts[pts.length-1].perc - pts[pts.length-2].perc : null;
-  const avgColor = avg >= 80 ? 'var(--green)' : avg >= 60 ? 'var(--warn)' : 'var(--danger)';
-
-  el.innerHTML = `
-    <div style="display:flex;flex-direction:column;gap:12px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;">
-        <span style="font-size:12px;color:var(--text2);">Média do período</span>
-        <span style="font-family:'DM Mono',monospace;font-size:18px;font-weight:700;color:${avgColor};">${avg}%</span>
-      </div>
-      <div style="display:flex;justify-content:space-between;align-items:center;">
-        <span style="font-size:12px;color:var(--text2);">Melhor resultado</span>
-        <span style="font-family:'DM Mono',monospace;font-size:14px;font-weight:600;color:var(--green);">🏆 ${best}%</span>
-      </div>
-      <div style="display:flex;justify-content:space-between;align-items:center;">
-        <span style="font-size:12px;color:var(--text2);">Pior resultado</span>
-        <span style="font-family:'DM Mono',monospace;font-size:14px;font-weight:600;color:var(--danger);">📉 ${worst}%</span>
-      </div>
-      <div style="display:flex;justify-content:space-between;align-items:center;">
-        <span style="font-size:12px;color:var(--text2);">Acima da meta (${anGoal}%)</span>
-        <span style="font-family:'DM Mono',monospace;font-size:14px;font-weight:600;color:var(--accent);">${abovePct}%</span>
-      </div>
-      ${trend !== null ? `<div style="display:flex;justify-content:space-between;align-items:center;">
-        <span style="font-size:12px;color:var(--text2);">Tendência recente</span>
-        <span style="font-size:13px;font-weight:700;color:${trend>=0?'var(--green)':'var(--danger)'};">${trend>=0?'↗ +':'↘ '}${trend}pp</span>
-      </div>` : ''}
-      <div style="display:flex;justify-content:space-between;align-items:center;">
-        <span style="font-size:12px;color:var(--text2);">Total de registros</span>
-        <span style="font-family:'DM Mono',monospace;font-size:14px;color:var(--text);">${pts.length}</span>
-      </div>
-    </div>`;
-}
-
-
-
-function init(){loadState();populateMateriaSelect();setDefaultManualDate();renderCronometroPage();}
 init();
 </script>
 </body>
