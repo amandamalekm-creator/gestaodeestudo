@@ -1561,15 +1561,15 @@ function anBuildChart({ labels, datasets, xLabel }) {
           callbacks: {
             title: items => items[0].label,
             label: item => {
-              if (item.dataset.borderDash) return ` Meta: ${item.raw}%`;
-              return ` ${item.dataset.label}: ${item.raw}%`;
+              if (item.dataset.borderDash) return ` Meta: ${item.parsed.y}%`;
+              return ` ${item.dataset.label}: ${item.parsed.y}%`;
             },
             afterBody: items => {
               const realItems = items.filter(i => !i.dataset.borderDash);
               const goal = anGoal;
               return realItems.map(i => {
-                const diff = i.raw - goal;
-                return diff >= 0 ? `  ✅ +${diff}pp acima da meta` : `  ⚠️ ${diff}pp abaixo da meta`;
+                const diff = i.parsed.y - goal;
+                return diff >= 0 ? `  ✅ +${diff}pp acima da meta` : `  ⚠️ ${Math.abs(diff)}pp abaixo da meta`;
               });
             }
           }
