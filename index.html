@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Aprovado — Gestão de Estudos (Nuvem)</title>
+<title>Aprovado — Gestão de Estudos (Nuvem V4)</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
@@ -212,44 +212,33 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
 .chart-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:24px; box-shadow:var(--shadow); }
 .chart-card-wide { grid-column: 1 / -1; }
 .chart-container { position:relative; width:100%; }
-
 .filter-bar { display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end; margin-bottom:20px; padding:16px 20px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow); }
 .filter-group { display:flex; flex-direction:column; gap:5px; min-width:160px; flex:1; }
 .filter-label { font-size:11px; font-weight:600; letter-spacing:.07em; text-transform:uppercase; color:var(--text3); }
 .filter-bar .select-wrap select { padding:8px 12px; font-size:13px; }
 .filter-bar input[type=number] { padding:8px 12px; font-size:13px; width:90px; }
 .filter-bar input[type=range] { accent-color:var(--accent); cursor:pointer; width:100%; }
-
 .toggle-group { display:flex; gap:6px; flex-wrap:wrap; }
 .toggle-pill { padding:6px 14px; border-radius:99px; font-size:12px; font-weight:600; border:1.5px solid var(--border); background:var(--surface); color:var(--text2); cursor:pointer; transition:all .18s; user-select:none; }
 .toggle-pill:hover { border-color:var(--accent); color:var(--accent); }
 .toggle-pill.active { background:var(--accent); border-color:var(--accent); color:white; }
 .toggle-pill.subject-pill { border-radius:8px; }
-
 .weekly-table { width:100%; border-collapse:collapse; font-size:13px; }
 .weekly-table th { text-align:left; padding:8px 12px; font-size:11px; font-weight:600; letter-spacing:.07em; text-transform:uppercase; color:var(--text3); border-bottom:1.5px solid var(--border); }
 .weekly-table td { padding:9px 12px; border-bottom:1px solid var(--border); }
 .weekly-table tr:last-child td { border-bottom:none; }
-
 .goal-row { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
 .goal-value-display { font-family:'DM Mono',monospace; font-size:18px; font-weight:600; color:var(--accent); min-width:44px; }
-
 .no-data-chart { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:200px; color:var(--text3); }
 .no-data-chart .ico { font-size:32px; margin-bottom:10px; }
 .no-data-chart p { font-size:13px; }
-
 .swatch { display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:5px; flex-shrink:0; }
-
-@media(max-width:780px){
-  .analytics-grid { grid-template-columns:1fr; }
-  .filter-bar { flex-direction:column; }
-}
+@media(max-width:780px){ .analytics-grid { grid-template-columns:1fr; } .filter-bar { flex-direction:column; } }
 </style>
 </head>
 <body>
 
 <div class="app" id="appRoot">
-
 <aside class="sidebar">
   <div class="logo">Aprovado<span>Gestão de Estudos</span></div>
   <nav class="nav">
@@ -259,13 +248,12 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
     <button class="nav-btn" onclick="showPage('materias')"><span class="ico">📚</span><span>Matérias</span></button>
     <button class="nav-btn" onclick="showPage('analytics')"><span class="ico">📈</span><span>Analytics</span></button>
   </nav>
-  <div class="sidebar-footer">Aprovado Nuvem
+  <div class="sidebar-footer">Aprovado Nuvem V4
     <div class="cloud-status" id="db-status">☁️ Conectando...</div>
   </div>
 </aside>
 
 <main class="main">
-
 <section class="page active" id="page-cronometro">
   <h1 class="page-title">Cronômetro</h1>
   <p class="page-sub">Inicie uma sessão de estudo e registre seu progresso em tempo real.</p>
@@ -289,7 +277,7 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
         <div class="card-title">Configurar Sessão</div>
         <div class="form-group">
           <label class="form-label">Matéria</label>
-          <div class="select-wrap"><select id="materia-select" onchange="populateConteudoSelect()"><option value="">— Escolha uma matéria —</option></select></div>
+          <div class="select-wrap"><select id="materia-select"><option value="">— Escolha uma matéria —</option></select></div>
         </div>
         <div style="margin-top:14px;">
           <button class="btn btn-primary" style="width:100%;justify-content:center;" onclick="startTimer()">▶ Iniciar Sessão</button>
@@ -314,23 +302,15 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
     <div>
       <div class="manual-box">
         <div class="card-title">✏️ Nova Sessão Manual</div>
-        <div class="form-group">
-          <label class="form-label">Data do estudo</label>
-          <input type="date" id="manual-date">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Matéria</label>
-          <div class="select-wrap"><select id="manual-materia-select" onchange="onManualMateriaChange()"><option value="">— Escolha uma matéria —</option></select></div>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Tempo estudado</label>
+        <div class="form-group"><label class="form-label">Data do estudo</label><input type="date" id="manual-date"></div>
+        <div class="form-group"><label class="form-label">Matéria</label><div class="select-wrap"><select id="manual-materia-select" onchange="onManualMateriaChange()"><option value="">— Escolha uma matéria —</option></select></div></div>
+        <div class="form-group"><label class="form-label">Tempo estudado</label>
           <div class="grid-3" style="gap:8px;">
             <div><input type="number" id="manual-horas" min="0" max="23" placeholder="0" style="text-align:center;"><div class="form-hint">Horas</div></div>
             <div><input type="number" id="manual-minutos" min="0" max="59" placeholder="0" style="text-align:center;"><div class="form-hint">Minutos</div></div>
             <div><input type="number" id="manual-segundos" min="0" max="59" placeholder="0" style="text-align:center;"><div class="form-hint">Segundos</div></div>
           </div>
         </div>
-
         <div class="divider" style="margin:16px 0;"></div>
         <div class="section-label">Conteúdos estudados</div>
         <div id="manual-ct-list" class="session-conteudo-list"></div>
@@ -339,24 +319,13 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
           <button class="btn btn-ghost btn-sm" onclick="addManualConteudo()">+ Adicionar</button>
         </div>
         <div id="manual-no-ct-hint" style="font-size:12px;color:var(--text3);margin-top:6px;display:none;">Você também pode salvar sem conteúdo específico.</div>
-
         <div class="divider" style="margin:16px 0;"></div>
-        <div class="form-group" style="margin-bottom:0;">
-          <label class="form-label">Observação <span style="font-weight:400;color:var(--text3)">(opcional)</span></label>
-          <textarea id="manual-obs" placeholder="Ex: Revisão dos capítulos 1-3..."></textarea>
-        </div>
+        <div class="form-group" style="margin-bottom:0;"><label class="form-label">Observação <span style="font-weight:400;color:var(--text3)">(opcional)</span></label><textarea id="manual-obs" placeholder="Ex: Revisão dos capítulos 1-3..."></textarea></div>
         <button class="btn btn-accent2" style="width:100%;justify-content:center;margin-top:16px;" onclick="saveManualSession()">✏️ Registrar Sessão</button>
       </div>
     </div>
     <div style="display:flex;flex-direction:column;gap:16px;">
-      <div class="card">
-        <div class="card-title">Como usar</div>
-        <p style="color:var(--text2);font-size:13px;line-height:1.8;">
-          Registre sessões que você não cronometrou. Informe a data, matéria e tempo.<br><br>
-          Você pode adicionar <strong>vários conteúdos</strong> com questões e acertos individuais por conteúdo.<br><br>
-          A sessão entrará no histórico marcada como <span class="badge badge-manual">Manual</span>.
-        </p>
-      </div>
+      <div class="card"><div class="card-title">Como usar</div><p style="color:var(--text2);font-size:13px;line-height:1.8;">Registre sessões que você não cronometrou. Informe a data, matéria e tempo.<br><br>Você pode adicionar múltiplos conteúdos. A sessão entrará no histórico marcada como <span class="badge badge-manual">Manual</span>.</p></div>
       <div class="card"><div class="card-title">Últimas Manuais</div><div id="manual-recent-list"></div></div>
     </div>
   </div>
@@ -377,17 +346,8 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
   <h1 class="page-title">Matérias & Conteúdos</h1>
   <p class="page-sub">Gerencie matérias e cadastre os conteúdos de cada uma.</p>
   <div class="grid-2" style="gap:20px;margin-bottom:24px;">
-    <div class="card">
-      <div class="card-title">Nova Matéria</div>
-      <div class="inline-form">
-        <input type="text" id="new-materia-input" placeholder="Ex: Português, Informática..." maxlength="60">
-        <button class="btn btn-primary" onclick="addMateria()" style="flex-shrink:0;">+ Adicionar</button>
-      </div>
-    </div>
-    <div class="card">
-      <div class="card-title">Dica</div>
-      <p style="color:var(--text2);font-size:13px;line-height:1.7;">Clique em uma matéria para expandir e cadastrar seus conteúdos. No registro de sessão você pode adicionar múltiplos conteúdos com questões individuais.</p>
-    </div>
+    <div class="card"><div class="card-title">Nova Matéria</div><div class="inline-form"><input type="text" id="new-materia-input" placeholder="Ex: Português..." maxlength="60"><button class="btn btn-primary" onclick="addMateria()" style="flex-shrink:0;">+ Adicionar</button></div></div>
+    <div class="card"><div class="card-title">Dica</div><p style="color:var(--text2);font-size:13px;line-height:1.7;">Clique em uma matéria para expandir e cadastrar seus conteúdos.</p></div>
   </div>
   <div class="card"><div class="card-title">Matérias Cadastradas</div><div class="materia-list" id="materia-list"></div></div>
 </section>
@@ -395,67 +355,27 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
 <section class="page" id="page-analytics">
   <h1 class="page-title">Analytics</h1>
   <p class="page-sub">Evolução do desempenho ao longo do tempo, por matéria e conteúdo.</p>
-
   <div class="filter-bar">
-    <div class="filter-group">
-      <div class="filter-label">Matéria</div>
-      <div class="select-wrap"><select id="an-materia-sel" onchange="anOnMateriaChange()"><option value="__all__">Todas as matérias</option></select></div>
-    </div>
-    <div class="filter-group">
-      <div class="filter-label">Conteúdo</div>
-      <div class="select-wrap"><select id="an-conteudo-sel" onchange="anRender()"><option value="__all__">Todos os conteúdos</option></select></div>
-    </div>
-    <div class="filter-group" style="min-width:140px;max-width:180px;">
-      <div class="filter-label">Meta de aproveitamento</div>
-      <div class="goal-row">
-        <input type="range" id="an-goal-range" min="0" max="100" step="5" value="70" oninput="anUpdateGoal(this.value)">
-        <div class="goal-value-display" id="an-goal-display">70%</div>
-      </div>
-    </div>
-    <div class="filter-group" style="min-width:auto;flex:0;">
-      <div class="filter-label">Visualização</div>
-      <div class="toggle-group">
-        <div class="toggle-pill active" id="an-mode-raw" onclick="anSetMode('raw')">Dados reais</div>
-        <div class="toggle-pill" id="an-mode-weekly" onclick="anSetMode('weekly')">Média semanal</div>
-      </div>
-    </div>
+    <div class="filter-group"><div class="filter-label">Matéria</div><div class="select-wrap"><select id="an-materia-sel" onchange="anOnMateriaChange()"><option value="__all__">Todas</option></select></div></div>
+    <div class="filter-group"><div class="filter-label">Conteúdo</div><div class="select-wrap"><select id="an-conteudo-sel" onchange="anRender()"><option value="__all__">Todos</option></select></div></div>
+    <div class="filter-group" style="min-width:140px;max-width:180px;"><div class="filter-label">Meta de aproveitamento</div><div class="goal-row"><input type="range" id="an-goal-range" min="0" max="100" step="5" value="70" oninput="anUpdateGoal(this.value)"><div class="goal-value-display" id="an-goal-display">70%</div></div></div>
+    <div class="filter-group" style="min-width:auto;flex:0;"><div class="filter-label">Visualização</div><div class="toggle-group"><div class="toggle-pill active" id="an-mode-raw" onclick="anSetMode('raw')">Dados reais</div><div class="toggle-pill" id="an-mode-weekly" onclick="anSetMode('weekly')">Média semanal</div></div></div>
   </div>
-
-  <div style="margin-bottom:16px;">
-    <div class="filter-label" style="margin-bottom:8px;">Comparar matérias (clique para ativar/desativar)</div>
-    <div class="toggle-group" id="an-subject-pills"></div>
-  </div>
-
+  <div style="margin-bottom:16px;"><div class="filter-label" style="margin-bottom:8px;">Comparar matérias</div><div class="toggle-group" id="an-subject-pills"></div></div>
   <div class="chart-card chart-card-wide" style="margin-bottom:20px;">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
       <div class="card-title" style="margin-bottom:0;">Evolução do Aproveitamento</div>
-      <div style="font-size:12px;color:var(--text3);" id="an-chart-subtitle">Últimos 5 registros por conteúdo</div>
+      <div style="font-size:12px;color:var(--text3);" id="an-chart-subtitle">Últimos registros</div>
     </div>
-    <div class="chart-container" style="height:320px;" id="an-main-chart-wrap">
-      <canvas id="an-main-chart"></canvas>
-    </div>
-    <div class="no-data-chart" id="an-no-data" style="display:none;">
-      <div class="ico">📈</div>
-      <p>Nenhum dado disponível ainda.<br>Registre sessões com questões para ver a evolução.</p>
-    </div>
+    <div class="chart-container" style="height:320px;" id="an-main-chart-wrap"><canvas id="an-main-chart"></canvas></div>
+    <div class="no-data-chart" id="an-no-data" style="display:none;"><div class="ico">📈</div><p>Nenhum dado disponível.</p></div>
   </div>
-
   <div class="analytics-grid">
-    <div class="chart-card">
-      <div class="card-title">Média Semanal</div>
-      <div id="an-weekly-table-wrap"></div>
-    </div>
-    <div class="chart-card">
-      <div class="card-title">Top Conteúdos</div>
-      <div id="an-top-conteudos-wrap"></div>
-    </div>
-    <div class="chart-card">
-      <div class="card-title">Resumo do Período</div>
-      <div id="an-period-summary-wrap"></div>
-    </div>
+    <div class="chart-card"><div class="card-title">Média Semanal</div><div id="an-weekly-table-wrap"></div></div>
+    <div class="chart-card"><div class="card-title">Top Conteúdos</div><div id="an-top-conteudos-wrap"></div></div>
+    <div class="chart-card"><div class="card-title">Resumo do Período</div><div id="an-period-summary-wrap"></div></div>
   </div>
 </section>
-
 </main>
 </div>
 
@@ -463,47 +383,31 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
   <div class="modal">
     <div class="modal-title">Registrar Sessão</div>
     <div class="modal-sub">Informe os conteúdos estudados e questões por conteúdo.</div>
-
-    <div class="modal-time">
-      <div class="modal-time-label">⏱ Tempo da sessão</div>
-      <div class="modal-time-val" id="modal-time-display">00:00:00</div>
-    </div>
-
-    <div class="form-group">
-      <label class="form-label">Matéria</label>
-      <input type="text" id="modal-materia-label" readonly>
-    </div>
-
+    <div class="modal-time"><div class="modal-time-label">⏱ Tempo da sessão</div><div class="modal-time-val" id="modal-time-display">00:00:00</div></div>
+    <div class="form-group"><label class="form-label">Matéria</label><input type="text" id="modal-materia-label" readonly></div>
     <div class="section-label">Conteúdos estudados</div>
     <div id="modal-ct-list" class="session-conteudo-list" style="margin-bottom:10px;"></div>
-
-    <div class="add-ct-row" id="modal-add-ct-row">
-      <div class="select-wrap" style="flex:1;"><select id="modal-ct-select"><option value="">— Selecione um conteúdo —</option></select></div>
-      <button class="btn btn-ghost btn-sm" onclick="addModalConteudo()">+ Adicionar</button>
-    </div>
-    <div style="font-size:12px;color:var(--text3);margin-top:6px;margin-bottom:16px;">Você pode salvar sem conteúdo, ou adicionar quantos quiser.</div>
-
-    <div class="modal-actions">
-      <button class="btn btn-secondary" onclick="cancelFinish()">Cancelar</button>
-      <button class="btn btn-primary" onclick="saveSession()">✓ Salvar Sessão</button>
-    </div>
+    <div class="add-ct-row" id="modal-add-ct-row"><div class="select-wrap" style="flex:1;"><select id="modal-ct-select"><option value="">— Selecione um conteúdo —</option></select></div><button class="btn btn-ghost btn-sm" onclick="addModalConteudo()">+ Adicionar</button></div>
+    <div class="modal-actions"><button class="btn btn-secondary" onclick="cancelFinish()">Cancelar</button><button class="btn btn-primary" onclick="saveSession()">✓ Salvar Sessão</button></div>
   </div>
 </div>
-
 <div class="toast" id="toast"></div>
 
 <script>
 // ══════════════════════════════════════════════════
-//  CONFIGURAÇÃO DO FIREBASE
+//  ATENÇÃO: CONFIGURAÇÃO DO FIREBASE (PASSO 4)
 // ══════════════════════════════════════════════════
-const firebaseConfig = {
-  apiKey: "AIzaSyA18zQiXornSPjb-eZ3EIn13PozIjD8K8Q",
+// COLE AS SUAS CHAVES DO PASSO 2 AQUI DENTRO (SEM DUPLICAR A PALAVRA CONST)
+
+const firebaseConfig = {apiKey: "AIzaSyA18zQiXornSPjb-eZ3EIn13PozIjD8K8Q",
   authDomain: "meuaprovadoapp.firebaseapp.com",
   projectId: "meuaprovadoapp",
   storageBucket: "meuaprovadoapp.firebasestorage.app",
   messagingSenderId: "836844323489",
   appId: "1:836844323489:web:165a234bbf05b8608ba6e0"
 };
+
+// ══════════════════════════════════════════════════
 
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
@@ -514,28 +418,45 @@ let currentMateria = null, sessionStart = null, timerStartedAt = null, timerBase
 let modalConteudos = [], manualConteudos = [];
 
 // ══════════════════════════════════════════════════
-//  STORAGE - NA NUVEM
+//  STORAGE - V4 (INFRAESTRUTURA GIGABYTE)
 // ══════════════════════════════════════════════════
 async function loadState() {
   const statusEl = document.getElementById('db-status');
   if(statusEl) statusEl.innerHTML = '☁️ Conectando...';
   try {
-    const doc = await db.collection('AprovadoApp').doc('Estudos').get();
-    if (doc.exists) {
-      state = doc.data().state;
-      state.materias = state.materias || [];
-      state.sessions = state.sessions || [];
+    // 1. Puxar Matérias
+    const matDoc = await db.collection('AprovadoApp').doc('Materias').get();
+    if (matDoc.exists) {
+      state.materias = matDoc.data().lista || [];
     } else {
-      // Se não existir, tenta puxar os dados antigos da máquina local
+      // Se for primeiro uso na V4, tenta puxar os dados antigos
       const savedLocal = localStorage.getItem('aprovado_data_v3');
       if (savedLocal) {
-        state = JSON.parse(savedLocal);
+        state.materias = JSON.parse(savedLocal).materias || [];
       } else {
-        state = { materias: [{name:'Regimento Interno', conteudos:[]}], sessions: [] };
+        state.materias = [{name:'Regimento Interno', conteudos:[]}];
       }
-      await saveState();
+      await saveMateriasDB();
     }
-    if(statusEl) statusEl.innerHTML = '✅ Nuvem Sincronizada';
+
+    // 2. Puxar Sessões Individuais
+    const snap = await db.collection('AprovadoApp').doc('Dados').collection('Sessoes').orderBy('date', 'desc').get();
+    if (!snap.empty) {
+      state.sessions = snap.docs.map(doc => doc.data());
+    } else {
+      // Rotina de Migração Automática: Se tiver sessão antiga no banco antigo, transfere pra cá
+      const oldDoc = await db.collection('AprovadoApp').doc('Estudos').get();
+      if (oldDoc.exists && oldDoc.data().state && oldDoc.data().state.sessions) {
+        state.sessions = oldDoc.data().state.sessions;
+        for (const s of state.sessions) {
+          await db.collection('AprovadoApp').doc('Dados').collection('Sessoes').doc(String(s.id)).set(s);
+        }
+      } else {
+         state.sessions = [];
+      }
+    }
+    
+    if(statusEl) statusEl.innerHTML = '✅ Nuvem V4 Ativa';
   } catch (error) {
     console.error(error);
     if(statusEl) statusEl.innerHTML = '❌ Erro na Nuvem';
@@ -543,17 +464,30 @@ async function loadState() {
   }
 }
 
-async function saveState() {
-  const statusEl = document.getElementById('db-status');
-  if(statusEl) statusEl.innerHTML = '☁️ Salvando...';
+async function saveMateriasDB() {
   try {
-    await db.collection('AprovadoApp').doc('Estudos').set({ state: state });
-    if(statusEl) statusEl.innerHTML = '✅ Nuvem Sincronizada';
+    await db.collection('AprovadoApp').doc('Materias').set({ lista: state.materias });
   } catch (error) {
-    console.error(error);
-    if(statusEl) statusEl.innerHTML = '❌ Erro ao salvar';
+    console.error("Erro ao salvar matéria", error);
   }
 }
+
+async function addSessionDB(sessionObj) {
+  try {
+    await db.collection('AprovadoApp').doc('Dados').collection('Sessoes').doc(String(sessionObj.id)).set(sessionObj);
+  } catch (error) {
+    console.error("Erro ao salvar sessão", error);
+  }
+}
+
+async function deleteSessionDB(id) {
+  try {
+    await db.collection('AprovadoApp').doc('Dados').collection('Sessoes').doc(String(id)).delete();
+  } catch (error) {
+    console.error("Erro ao deletar sessão", error);
+  }
+}
+
 
 // ══════════════════════════════════════════════════
 //  NAVIGATION
@@ -634,7 +568,7 @@ async function addMateria() {
   if (!name) { showToast('Digite o nome da matéria.'); return; }
   if (state.materias.find(m=>m.name===name)) { showToast('Matéria já cadastrada.'); return; }
   state.materias.push({ name, conteudos:[] });
-  await saveState(); input.value='';
+  await saveMateriasDB(); input.value='';
   renderMaterias(); refreshAllSelects();
   showToast('Matéria adicionada!');
 }
@@ -642,7 +576,7 @@ async function addMateria() {
 async function deleteMateria(i) {
   if (!confirm(`Remover "${state.materias[i].name}"?`)) return;
   state.materias.splice(i,1);
-  await saveState(); renderMaterias(); refreshAllSelects();
+  await saveMateriasDB(); renderMaterias(); refreshAllSelects();
   showToast('Matéria removida.');
 }
 
@@ -653,7 +587,7 @@ async function addConteudo(mi) {
   if (!mat.conteudos) mat.conteudos=[];
   if (mat.conteudos.includes(name)) { showToast('Conteúdo já cadastrado.'); return; }
   mat.conteudos.push(name);
-  await saveState(); input.value='';
+  await saveMateriasDB(); input.value='';
   renderMaterias();
   const p=document.getElementById('cp-'+mi), t=document.getElementById('mt-'+mi);
   if(p){p.classList.add('open');t.classList.add('open');}
@@ -664,7 +598,7 @@ async function addConteudo(mi) {
 async function deleteConteudo(mi,ci) {
   if (!confirm(`Remover "${state.materias[mi].conteudos[ci]}"?`)) return;
   state.materias[mi].conteudos.splice(ci,1);
-  await saveState(); renderMaterias();
+  await saveMateriasDB(); renderMaterias();
   const p=document.getElementById('cp-'+mi), t=document.getElementById('mt-'+mi);
   if(p){p.classList.add('open');t.classList.add('open');}
   refreshAllSelects();
@@ -678,8 +612,6 @@ function populateMateriaSelect() {
   sel.innerHTML='<option value="">— Escolha uma matéria —</option>';
   state.materias.forEach(m=>{ const o=document.createElement('option'); o.value=m.name; o.textContent=m.name; if(m.name===cur)o.selected=true; sel.appendChild(o); });
 }
-
-function populateConteudoSelect() {}
 
 function refreshAllSelects() {
   populateMateriaSelect();
@@ -866,7 +798,7 @@ async function saveSession() {
     if (!ct.onlyTheory && ct.correct>ct.total) { showToast(`"${ct.name}": acertos não podem ser maiores que o total.`); return; }
   }
 
-  state.sessions.unshift({
+  const novaSessao = {
     id: Date.now(),
     date: new Date().toISOString(),
     materia: currentMateria,
@@ -874,11 +806,15 @@ async function saveSession() {
     manual: false,
     obs: '',
     conteudos: modalConteudos.map(c=>({...c}))
-  });
-  await saveState(); resetTimerUI();
+  };
+
+  state.sessions.unshift(novaSessao);
+  await addSessionDB(novaSessao); 
+
+  resetTimerUI();
   document.getElementById('finish-modal').classList.remove('open');
   renderCronometroPage();
-  showToast('Sessão salva na Nuvem! 🎉');
+  showToast('Sessão salva na Nuvem V4! 🎉');
 }
 
 function resetTimerUI() {
@@ -1025,22 +961,24 @@ async function saveManualSession() {
   const obs=document.getElementById('manual-obs').value.trim();
   const dateObj=new Date(dateVal+'T12:00:00');
 
-  state.sessions.unshift({
+  const novaSessao = {
     id: Date.now(),
     date: dateObj.toISOString(),
     materia, duration,
     manual: true, obs,
     conteudos: manualConteudos.map(c=>({...c}))
-  });
+  };
+
+  state.sessions.unshift(novaSessao);
   state.sessions.sort((a,b)=>new Date(b.date)-new Date(a.date));
-  await saveState();
+  await addSessionDB(novaSessao);
 
   ['manual-horas','manual-minutos','manual-segundos','manual-obs'].forEach(id=>{document.getElementById(id).value='';});
   manualConteudos=[];
   renderManualCtList();
   populateManualCtSelect();
   renderManualRecent();
-  showToast('Sessão manual registrada na Nuvem! ✏️');
+  showToast('Sessão manual registrada na Nuvem V4! ✏️');
 }
 
 function renderManualRecent() {
@@ -1209,7 +1147,11 @@ function renderHistory() {
 
 async function deleteSession(i) {
   if (!confirm('Remover esta sessão?')) return;
-  state.sessions.splice(i,1); await saveState(); renderDashboard(); showToast('Sessão removida.');
+  const idToDel = state.sessions[i].id;
+  state.sessions.splice(i,1); 
+  await deleteSessionDB(idToDel);
+  renderDashboard(); 
+  showToast('Sessão removida.');
 }
 
 // ══════════════════════════════════════════════════
@@ -1694,7 +1636,7 @@ function anRenderPeriodSummary(pts) {
       </div>
       ${trend !== null ? `<div style="display:flex;justify-content:space-between;align-items:center;">
         <span style="font-size:12px;color:var(--text2);">Tendência recente</span>
-        <span style="font-size:13px;font-weight:700;color:${trend>=0?'var(--green)':'var(--danger)'};">${trend>=0?'↗ +':'↘ '}${trend}pp</span>
+        <span style="font-size:13px;font-weight:700;color:${trend>=0?'var(--green)':'var(--danger)'};">${trend>=0?'↗ +':'↘ '}${Math.abs(trend)}pp</span>
       </div>` : ''}
       <div style="display:flex;justify-content:space-between;align-items:center;">
         <span style="font-size:12px;color:var(--text2);">Total de registros</span>
