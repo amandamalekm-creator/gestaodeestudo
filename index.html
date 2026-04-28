@@ -10,6 +10,7 @@
 
 <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-auth-compat.js"></script>
 
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -238,7 +239,15 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
 </head>
 <body>
 
-<div class="app" id="appRoot">
+<div id="login-screen" style="position:fixed; inset:0; background:var(--bg); z-index:9999; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:20px;">
+  <div style="font-family:'DM Serif Display',serif; font-size:36px; color:var(--accent); margin-bottom:8px;">Aprovado</div>
+  <p style="color:var(--text2); margin-bottom:32px;">Faça login para sincronizar as suas horas na Nuvem V4.</p>
+  <button class="btn btn-primary" onclick="loginComGoogle()" style="padding:14px 24px; font-size:16px;">
+    Autenticar com o Google
+  </button>
+</div>
+
+<div class="app" id="appRoot" style="display:none;">
 <aside class="sidebar">
   <div class="logo">Aprovado<span>Gestão de Estudos</span></div>
   <nav class="nav">
@@ -247,6 +256,7 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
     <button class="nav-btn" onclick="showPage('dashboard')"><span class="ico">📊</span><span>Dashboard</span></button>
     <button class="nav-btn" onclick="showPage('materias')"><span class="ico">📚</span><span>Matérias</span></button>
     <button class="nav-btn" onclick="showPage('analytics')"><span class="ico">📈</span><span>Analytics</span></button>
+    <button class="nav-btn" onclick="fazerLogout()" style="margin-top:auto; color:var(--danger);"><span class="ico">🚪</span><span>Sair</span></button>
   </nav>
   <div class="sidebar-footer">Aprovado Nuvem V4
     <div class="cloud-status" id="db-status">☁️ Conectando...</div>
@@ -354,7 +364,7 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
 
 <section class="page" id="page-analytics">
   <h1 class="page-title">Analytics</h1>
-  <p class="page-sub">Evolução do desempenho ao longo do tempo, por matéria e conteúdo.</p>
+  <p class="page-sub">Evolução do desempenho (baseado nas sessões carregadas).</p>
   <div class="filter-bar">
     <div class="filter-group"><div class="filter-label">Matéria</div><div class="select-wrap"><select id="an-materia-sel" onchange="anOnMateriaChange()"><option value="__all__">Todas</option></select></div></div>
     <div class="filter-group"><div class="filter-label">Conteúdo</div><div class="select-wrap"><select id="an-conteudo-sel" onchange="anRender()"><option value="__all__">Todos</option></select></div></div>
@@ -395,11 +405,10 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
 
 <script>
 // ══════════════════════════════════════════════════
-//  ATENÇÃO: CONFIGURAÇÃO DO FIREBASE (PASSO 4)
+//  CONFIGURAÇÃO DO FIREBASE
 // ══════════════════════════════════════════════════
-// COLE AS SUAS CHAVES DO PASSO 2 AQUI DENTRO (SEM DUPLICAR A PALAVRA CONST)
-
-const firebaseConfig = {apiKey: "AIzaSyA18zQiXornSPjb-eZ3EIn13PozIjD8K8Q",
+const firebaseConfig = {
+  apiKey: "AIzaSyA18zQiXornSPjb-eZ3EIn13PozIjD8K8Q",
   authDomain: "meuaprovadoapp.firebaseapp.com",
   projectId: "meuaprovadoapp",
   storageBucket: "meuaprovadoapp.firebasestorage.app",
@@ -407,56 +416,142 @@ const firebaseConfig = {apiKey: "AIzaSyA18zQiXornSPjb-eZ3EIn13PozIjD8K8Q",
   appId: "1:836844323489:web:165a234bbf05b8608ba6e0"
 };
 
-// ══════════════════════════════════════════════════
-
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
+const auth = firebase.auth();
 
-let state = { materias: [], sessions: [] };
+let currentUser = null;
+
+// 1. STATE REESTRUTURADO
+let state = { 
+  materias: [], 
+  sessions: [],
+  aggregates: { materias: {}, conteudos: {} }
+};
+
+let lastVisibleSession = null;
+let hasMoreSessions = true;
+
+// 2. SISTEMA REATIVO
+const listeners = [];
+function subscribe(fn){ listeners.push(fn); }
+function notify(){ listeners.forEach(fn=>fn()); }
+
 let timerInterval = null, timerSeconds = 0, timerRunning = false, timerPaused = false;
 let currentMateria = null, sessionStart = null, timerStartedAt = null, timerBaseSeconds = 0;
 let modalConteudos = [], manualConteudos = [];
 
 // ══════════════════════════════════════════════════
-//  STORAGE - V4 (INFRAESTRUTURA GIGABYTE)
+//  SISTEMA DE AUTENTICAÇÃO
+// ══════════════════════════════════════════════════
+auth.onAuthStateChanged(async (user) => {
+  const loginScreen = document.getElementById('login-screen');
+  const appRoot = document.getElementById('appRoot');
+
+  if (user) {
+    // Utilizador logado
+    currentUser = user;
+    loginScreen.style.display = 'none'; // Esconde o login
+    appRoot.style.display = 'flex';     // Mostra a app
+    
+    // Agora sim, carregamos os dados dele
+    await init();
+  } else {
+    // Utilizador não logado
+    currentUser = null;
+    loginScreen.style.display = 'flex'; // Mostra o login
+    appRoot.style.display = 'none';     // Esconde a app
+  }
+});
+
+function loginComGoogle() {
+  const provider = new firebase.auth.GoogleAuthProvider();
+  auth.signInWithPopup(provider).catch((error) => {
+    console.error("Erro no login:", error);
+    alert("Falha ao fazer login. Tente novamente.");
+  });
+}
+
+function fazerLogout() {
+  auth.signOut();
+}
+
+// ══════════════════════════════════════════════════
+//  ISOLAMENTO DE DADOS (NOVO CAMINHO)
+// ══════════════════════════════════════════════════
+// Esta função devolve o "cofre" pessoal do utilizador
+function getUserRef() {
+  return db.collection('Usuarios').doc(currentUser.uid);
+}
+
+// ══════════════════════════════════════════════════
+//  STORAGE E PAGINAÇÃO (OFF-LINE FIRST / NUVEM V4)
 // ══════════════════════════════════════════════════
 async function loadState() {
   const statusEl = document.getElementById('db-status');
   if(statusEl) statusEl.innerHTML = '☁️ Conectando...';
+  
   try {
-    // 1. Puxar Matérias
-    const matDoc = await db.collection('AprovadoApp').doc('Materias').get();
+    // 1. Puxar Matérias (Agora isolado por utilizador)
+    const matDoc = await getUserRef().collection('Dados').doc('Materias').get();
     if (matDoc.exists) {
       state.materias = matDoc.data().lista || [];
     } else {
-      // Se for primeiro uso na V4, tenta puxar os dados antigos
       const savedLocal = localStorage.getItem('aprovado_data_v3');
-      if (savedLocal) {
-        state.materias = JSON.parse(savedLocal).materias || [];
-      } else {
-        state.materias = [{name:'Regimento Interno', conteudos:[]}];
-      }
+      if (savedLocal) state.materias = JSON.parse(savedLocal).materias || [];
+      else state.materias = [{name:'Regimento Interno', conteudos:[]}];
       await saveMateriasDB();
     }
 
-    // 2. Puxar Sessões Individuais
-    const snap = await db.collection('AprovadoApp').doc('Dados').collection('Sessoes').orderBy('date', 'desc').get();
+    // 2. Puxar Agregados (Resumo Geral do utilizador)
+    const aggDoc = await getUserRef().collection('Dados').doc('Agregados').get();
+    let needsMigration = false;
+    
+    if (aggDoc.exists) {
+      state.aggregates = aggDoc.data();
+      if (!state.aggregates.materias) state.aggregates.materias = {};
+      if (!state.aggregates.conteudos) state.aggregates.conteudos = {};
+    } else {
+      needsMigration = true;
+      state.aggregates = { materias: {}, conteudos: {} };
+    }
+
+    // 3. Puxar Sessões (Com Paginação) do utilizador
+    let query = getUserRef().collection('Sessoes').orderBy('date', 'desc');
+    
+    // Se não precisar de migração (ou seja, Agregados já existem), puxa só as 30 últimas.
+    if (!needsMigration) {
+      query = query.limit(30);
+    }
+
+    const snap = await query.get();
+    
     if (!snap.empty) {
       state.sessions = snap.docs.map(doc => doc.data());
-    } else {
-      // Rotina de Migração Automática: Se tiver sessão antiga no banco antigo, transfere pra cá
-      const oldDoc = await db.collection('AprovadoApp').doc('Estudos').get();
-      if (oldDoc.exists && oldDoc.data().state && oldDoc.data().state.sessions) {
-        state.sessions = oldDoc.data().state.sessions;
-        for (const s of state.sessions) {
-          await db.collection('AprovadoApp').doc('Dados').collection('Sessoes').doc(String(s.id)).set(s);
+      
+      if (needsMigration) {
+        // Rotina de Migração Única: Constrói agregados baseado em todas as sessões e salva.
+        state.sessions.forEach(updateAggregates);
+        await saveAggregatesDB();
+        
+        // Trunca a memória para não explodir
+        if (snap.docs.length > 30) {
+          lastVisibleSession = snap.docs[29]; // Salva o cursor na 30ª
+          state.sessions = state.sessions.slice(0, 30);
+          hasMoreSessions = true;
+        } else {
+          hasMoreSessions = false;
         }
       } else {
-         state.sessions = [];
+        // Fluxo Leve: Puxou só 30
+        lastVisibleSession = snap.docs[snap.docs.length - 1];
+        hasMoreSessions = snap.docs.length >= 30;
       }
+    } else {
+      hasMoreSessions = false;
     }
     
-    if(statusEl) statusEl.innerHTML = '✅ Nuvem V4 Ativa';
+    if(statusEl) statusEl.innerHTML = '✅ Nuvem V4 Ativa (Paginada)';
   } catch (error) {
     console.error(error);
     if(statusEl) statusEl.innerHTML = '❌ Erro na Nuvem';
@@ -464,17 +559,53 @@ async function loadState() {
   }
 }
 
+async function loadMoreSessions() {
+  if (!lastVisibleSession) return;
+  const btn = document.getElementById('btn-load-more');
+  if(btn) btn.textContent = 'Carregando...';
+  
+  try {
+    const snap = await getUserRef().collection('Sessoes')
+      .orderBy('date', 'desc')
+      .startAfter(lastVisibleSession)
+      .limit(30)
+      .get();
+      
+    if (!snap.empty) {
+      const newSessions = snap.docs.map(doc => doc.data());
+      state.sessions = state.sessions.concat(newSessions);
+      lastVisibleSession = snap.docs[snap.docs.length - 1];
+      if (snap.docs.length < 30) hasMoreSessions = false;
+    } else {
+      hasMoreSessions = false;
+    }
+    notify(); // Atualiza a tabela do histórico e os gráficos de Analytics
+  } catch(e) {
+    console.error(e);
+    showToast('Erro ao carregar sessões mais antigas.');
+    if(btn) btn.textContent = 'Tentar novamente';
+  }
+}
+
 async function saveMateriasDB() {
   try {
-    await db.collection('AprovadoApp').doc('Materias').set({ lista: state.materias });
+    await getUserRef().collection('Dados').doc('Materias').set({ lista: state.materias });
   } catch (error) {
     console.error("Erro ao salvar matéria", error);
   }
 }
 
+async function saveAggregatesDB() {
+  try {
+    await getUserRef().collection('Dados').doc('Agregados').set(state.aggregates);
+  } catch (error) {
+    console.error("Erro ao salvar agregados", error);
+  }
+}
+
 async function addSessionDB(sessionObj) {
   try {
-    await db.collection('AprovadoApp').doc('Dados').collection('Sessoes').doc(String(sessionObj.id)).set(sessionObj);
+    await getUserRef().collection('Sessoes').doc(String(sessionObj.id)).set(sessionObj);
   } catch (error) {
     console.error("Erro ao salvar sessão", error);
   }
@@ -482,12 +613,98 @@ async function addSessionDB(sessionObj) {
 
 async function deleteSessionDB(id) {
   try {
-    await db.collection('AprovadoApp').doc('Dados').collection('Sessoes').doc(String(id)).delete();
+    await getUserRef().collection('Sessoes').doc(String(id)).delete();
   } catch (error) {
     console.error("Erro ao deletar sessão", error);
   }
 }
 
+// 4. UPDATE AGGREGATES (Mantido O(1))
+function updateAggregates(session){
+  const { materia, duration, conteudos, date } = session;
+
+  if (!state.aggregates.materias[materia]){
+    state.aggregates.materias[materia]={ totalTime:0,totalQs:0,correctQs:0 };
+  }
+
+  state.aggregates.materias[materia].totalTime += duration;
+
+  conteudos.forEach(ct=>{
+    const id = ct.id || ct.name;
+
+    if(!state.aggregates.conteudos[id]){
+      state.aggregates.conteudos[id]={ totalTime:0,totalQs:0,correctQs:0,last5:[],lastStudied:null };
+    }
+
+    const agg = state.aggregates.conteudos[id];
+
+    agg.totalTime += duration/(conteudos.length||1);
+    if(!ct.onlyTheory){
+      agg.totalQs += ct.total||0;
+      agg.correctQs += ct.correct||0;
+    }
+
+    agg.lastStudied = date;
+
+    const perc = ct.total ? ct.correct/ct.total : 0;
+    agg.last5.push({date,perc});
+    if(agg.last5.length>5) agg.last5.shift();
+  });
+}
+
+// FUNÇÃO INVERSA: REMOVE AGGREGATES (Evita ter que recalcular tudo ao apagar)
+function removeSessionFromAggregates(session){
+  const { materia, duration, conteudos } = session;
+  
+  if (state.aggregates.materias[materia]){
+    state.aggregates.materias[materia].totalTime = Math.max(0, state.aggregates.materias[materia].totalTime - duration);
+  }
+  
+  conteudos.forEach(ct=>{
+    const id = ct.id || ct.name;
+    const agg = state.aggregates.conteudos[id];
+    
+    if(agg){
+      agg.totalTime = Math.max(0, agg.totalTime - (duration/(conteudos.length||1)));
+      if(!ct.onlyTheory){
+        agg.totalQs = Math.max(0, agg.totalQs - (ct.total||0));
+        agg.correctQs = Math.max(0, agg.correctQs - (ct.correct||0));
+      }
+      agg.last5 = agg.last5.filter(x => x.date !== session.date);
+    }
+  });
+}
+
+// 9. PRIORIDADE + TENDÊNCIA
+function calcPrioridade(id){
+  const agg = state.aggregates.conteudos[id];
+  if(!agg) return 0;
+
+  const perc = agg.totalQs ? (agg.correctQs/agg.totalQs)*100 : 0;
+  const dias = agg.lastStudied ? (Date.now()-new Date(agg.lastStudied))/(1000*60*60*24) : 30;
+
+  return (100-perc)+dias;
+}
+
+function calcTrend(id){
+  const agg = state.aggregates.conteudos[id];
+  if(!agg||agg.last5.length<2) return "→";
+
+  const f=agg.last5[0].perc;
+  const l=agg.last5[agg.last5.length-1].perc;
+
+  return l>f?"↑":l<f?"↓":"→";
+}
+
+function getAggTotal() {
+  let tQ = 0, tC = 0, tS = 0;
+  Object.values(state.aggregates.materias).forEach(m => {
+    tQ += (m.totalQs || 0);
+    tC += (m.correctQs || 0);
+    tS += (m.totalTime || 0);
+  });
+  return { totalQs: tQ, correctQs: tC, totalTime: tS };
+}
 
 // ══════════════════════════════════════════════════
 //  NAVIGATION
@@ -517,20 +734,20 @@ function renderMaterias() {
   }
   list.innerHTML = state.materias.map((m, i) => {
     const c = m.conteudos || [];
+    
     const rows = c.length
       ? c.map((ct, j) => {
-          let secs=0, tQ=0, cQ=0;
-          state.sessions.forEach(s => {
-            if (s.materia !== m.name) return;
-            s.conteudos.forEach(sc => {
-              if (sc.name !== ct) return;
-              secs += Math.round(s.duration / (s.conteudos.length||1));
-              if (!sc.onlyTheory) { tQ += sc.total||0; cQ += sc.correct||0; }
-            });
-          });
+          const ctName = ct.name || ct;
+          const ctId = ct.id || ctName;
+          
+          const agg = state.aggregates.conteudos[ctId];
+          let secs = agg ? agg.totalTime : 0;
+          let tQ = agg ? agg.totalQs : 0;
+          let cQ = agg ? agg.correctQs : 0;
+
           const perc = tQ>0 ? Math.round(cQ/tQ*100) : null;
           return `<div class="conteudo-row">
-            <div class="conteudo-row-name">${escHtml(ct)}</div>
+            <div class="conteudo-row-name">${escHtml(ctName)}</div>
             <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text3);">${formatTime(secs)}</span>
             ${perc!==null ? aprovBadge(perc) : '<span style="color:var(--text3);font-size:11px;">—</span>'}
             <button class="conteudo-del" onclick="deleteConteudo(${i},${j})">✕</button>
@@ -585,8 +802,11 @@ async function addConteudo(mi) {
   if (!name) { showToast('Digite o nome do conteúdo.'); return; }
   const mat=state.materias[mi];
   if (!mat.conteudos) mat.conteudos=[];
-  if (mat.conteudos.includes(name)) { showToast('Conteúdo já cadastrado.'); return; }
-  mat.conteudos.push(name);
+  
+  if (mat.conteudos.find(c => (c.name || c) === name)) { showToast('Conteúdo já cadastrado.'); return; }
+  
+  mat.conteudos.push({ id: crypto.randomUUID(), name });
+  
   await saveMateriasDB(); input.value='';
   renderMaterias();
   const p=document.getElementById('cp-'+mi), t=document.getElementById('mt-'+mi);
@@ -596,7 +816,7 @@ async function addConteudo(mi) {
 }
 
 async function deleteConteudo(mi,ci) {
-  if (!confirm(`Remover "${state.materias[mi].conteudos[ci]}"?`)) return;
+  if (!confirm(`Tem certeza que deseja apagar este conteúdo?`)) return;
   state.materias[mi].conteudos.splice(ci,1);
   await saveMateriasDB(); renderMaterias();
   const p=document.getElementById('cp-'+mi), t=document.getElementById('mt-'+mi);
@@ -707,8 +927,11 @@ function populateModalCtSelect() {
   sel.innerHTML='<option value="">— Selecione um conteúdo —</option>';
   if (mat && mat.conteudos) {
     mat.conteudos
-      .filter(c => !modalConteudos.find(mc=>mc.name===c))
-      .forEach(c=>{ const o=document.createElement('option'); o.value=c; o.textContent=c; sel.appendChild(o); });
+      .filter(c => !modalConteudos.find(mc => mc.name === (c.name || c)))
+      .forEach(c=>{ 
+         const cName = c.name || c;
+         const o=document.createElement('option'); o.value=cName; o.textContent=cName; sel.appendChild(o); 
+      });
   }
 }
 
@@ -792,6 +1015,7 @@ function renderModalCtList() {
   });
 }
 
+// 5. SAVE SESSION COM AGGREGATES
 async function saveSession() {
   for (let i=0; i<modalConteudos.length; i++) {
     const ct=modalConteudos[i];
@@ -808,8 +1032,21 @@ async function saveSession() {
     conteudos: modalConteudos.map(c=>({...c}))
   };
 
+  if ((!novaSessao.conteudos || !novaSessao.conteudos.length) && !novaSessao.obs){
+    showToast("Adicione conteúdo ou observação.");
+    return;
+  }
+
+  novaSessao.conteudos = novaSessao.conteudos.map(c=>({
+    ...c,
+    id: c.id || crypto.randomUUID()
+  }));
+
   state.sessions.unshift(novaSessao);
+  updateAggregates(novaSessao);
   await addSessionDB(novaSessao); 
+  await saveAggregatesDB();
+  notify();
 
   resetTimerUI();
   document.getElementById('finish-modal').classList.remove('open');
@@ -865,8 +1102,11 @@ function populateManualCtSelect() {
   sel.innerHTML='<option value="">— Selecione um conteúdo —</option>';
   if (mat && mat.conteudos) {
     mat.conteudos
-      .filter(c=>!manualConteudos.find(mc=>mc.name===c))
-      .forEach(c=>{ const o=document.createElement('option'); o.value=c; o.textContent=c; sel.appendChild(o); });
+      .filter(c => !manualConteudos.find(mc => mc.name === (c.name || c)))
+      .forEach(c=>{ 
+         const cName = c.name || c;
+         const o=document.createElement('option'); o.value=cName; o.textContent=cName; sel.appendChild(o); 
+      });
   }
 }
 
@@ -942,6 +1182,7 @@ function renderManualCtList() {
   });
 }
 
+// Adaptação p/ salvar sessão manual com as mesmas lógicas reativas
 async function saveManualSession() {
   const materia=document.getElementById('manual-materia-select').value;
   if (!materia) { showToast('Selecione uma matéria.'); return; }
@@ -969,9 +1210,23 @@ async function saveManualSession() {
     conteudos: manualConteudos.map(c=>({...c}))
   };
 
+  if ((!novaSessao.conteudos || !novaSessao.conteudos.length) && !novaSessao.obs){
+    showToast("Adicione conteúdo ou observação.");
+    return;
+  }
+
+  novaSessao.conteudos = novaSessao.conteudos.map(c=>({
+    ...c,
+    id: c.id || crypto.randomUUID()
+  }));
+
   state.sessions.unshift(novaSessao);
   state.sessions.sort((a,b)=>new Date(b.date)-new Date(a.date));
+  
+  updateAggregates(novaSessao);
   await addSessionDB(novaSessao);
+  await saveAggregatesDB();
+  notify();
 
   ['manual-horas','manual-minutos','manual-segundos','manual-obs'].forEach(id=>{document.getElementById(id).value='';});
   manualConteudos=[];
@@ -1033,103 +1288,111 @@ function aprovBadge(perc) {
 }
 
 // ══════════════════════════════════════════════════
-//  DASHBOARD
+//  DASHBOARD (AGORA O(1) BASEADO EM AGGREGATES)
 // ══════════════════════════════════════════════════
-function renderDashboard() { renderGeralStats(); renderByMateria(); renderAproveitamentoGeral(); renderHistory(); }
-
-function sessionTotals(sessions) {
-  let total=0, correct=0;
-  sessions.forEach(s=>s.conteudos.forEach(c=>{ if(!c.onlyTheory){total+=(c.total||0);correct+=(c.correct||0);} }));
-  return {total,correct};
+function renderDashboard() { 
+  renderGeralStats(); 
+  renderByMateria(); 
+  renderAproveitamentoGeral(); 
+  renderHistory();
+  renderInsights();
 }
 
 function renderGeralStats() {
-  const totalSecs=state.sessions.reduce((a,s)=>a+s.duration,0);
-  const {total:tQ,correct:tC}=sessionTotals(state.sessions);
-  const perc=tQ>0?Math.round(tC/tQ*100):null;
-  const percColor=perc===null?'var(--text)':perc>=80?'var(--green)':perc>=60?'var(--warn)':'var(--danger)';
+  const totals = getAggTotal();
+  const perc = totals.totalQs > 0 ? Math.round(totals.correctQs / totals.totalQs * 100) : null;
+  const percColor = perc === null ? 'var(--text)' : perc >= 80 ? 'var(--green)' : perc >= 60 ? 'var(--warn)' : 'var(--danger)';
+  
   document.getElementById('stats-geral').innerHTML=`
-    <div class="stat-card"><div class="stat-label">⏱ Tempo Total</div><div class="stat-value">${formatTime(totalSecs)}</div><div class="stat-sub">${(totalSecs/3600).toFixed(1)}h · ${state.sessions.length} sessões</div></div>
-    <div class="stat-card"><div class="stat-label">📝 Questões</div><div class="stat-value">${tQ}</div><div class="stat-sub">${tC} acertos registrados</div></div>
-    <div class="stat-card"><div class="stat-label">🎯 Aproveitamento</div><div class="stat-value" style="color:${percColor};">${perc!==null?perc+'%':'—'}</div><div class="stat-sub">${tQ>0?tC+' de '+tQ:' Sem questões ainda'}</div></div>`;
+    <div class="stat-card"><div class="stat-label">⏱ Tempo Total</div><div class="stat-value">${formatTime(totals.totalTime)}</div><div class="stat-sub">${(totals.totalTime/3600).toFixed(1)}h acumuladas</div></div>
+    <div class="stat-card"><div class="stat-label">📝 Questões</div><div class="stat-value">${totals.totalQs}</div><div class="stat-sub">${totals.correctQs} acertos registrados</div></div>
+    <div class="stat-card"><div class="stat-label">🎯 Aproveitamento</div><div class="stat-value" style="color:${percColor};">${perc!==null?perc+'%':'—'}</div><div class="stat-sub">${totals.totalQs>0?totals.correctQs+' de '+totals.totalQs:' Sem questões'}</div></div>`;
 }
 
 function renderByMateria() {
-  const el=document.getElementById('stats-by-materia');
-  if (!state.sessions.length) { el.innerHTML='<div class="empty"><div class="ico">📊</div><p>Nenhuma sessão ainda.</p></div>'; return; }
+  const el = document.getElementById('stats-by-materia');
+  if (!Object.keys(state.aggregates.materias).length) { el.innerHTML='<div class="empty"><div class="ico">📊</div><p>Nenhuma sessão ainda.</p></div>'; return; }
 
-  const byMat={};
-  state.sessions.forEach(s=>{
-    if (!byMat[s.materia]) byMat[s.materia]={secs:0,total:0,correct:0,byConteudo:{}};
-    byMat[s.materia].secs+=s.duration;
-    s.conteudos.forEach(c=>{
-      if (!c.onlyTheory){byMat[s.materia].total+=(c.total||0);byMat[s.materia].correct+=(c.correct||0);}
-      if (c.name){
-        if (!byMat[s.materia].byConteudo[c.name]) byMat[s.materia].byConteudo[c.name]={secs:0,total:0,correct:0};
-        byMat[s.materia].byConteudo[c.name].secs+=Math.round(s.duration/(s.conteudos.length||1));
-        if (!c.onlyTheory){byMat[s.materia].byConteudo[c.name].total+=(c.total||0);byMat[s.materia].byConteudo[c.name].correct+=(c.correct||0);}
-      }
-    });
-  });
+  const sortedMats = Object.entries(state.aggregates.materias)
+     .sort((a,b) => b[1].totalTime - a[1].totalTime);
 
-  el.innerHTML=Object.entries(byMat).sort((a,b)=>b[1].secs-a[1].secs).map(([mat,d])=>{
-    const perc=d.total>0?Math.round(d.correct/d.total*100):null;
-    const percLabel=perc!==null?perc+'%':'Só teoria';
-    const cls=perc===null?'':perc>=80?'perc-green':perc>=60?'perc-warn':'perc-danger';
-    const fillCls=perc===null?'fill-accent':perc>=80?'fill-green':perc>=60?'fill-warn':'fill-danger';
-    const ctEntries=Object.entries(d.byConteudo);
-    const ctSub=ctEntries.length?`<div class="conteudo-stat-sub">${ctEntries.map(([ct,cd])=>{
-      const cp=cd.total>0?Math.round(cd.correct/cd.total*100):null;
-      return `<div class="conteudo-stat-item">
-        <div class="conteudo-stat-item-name">📖 ${escHtml(ct)}</div>
-        <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
-          <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text3);">${formatTime(cd.secs)}</span>
-          ${cp!==null?aprovBadge(cp):'<span style="color:var(--text3);font-size:11px;">—</span>'}
-        </div>
-      </div>`;
-    }).join('')}</div>`:'';
+  el.innerHTML = sortedMats.map(([matName, d]) => {
+    if (d.totalTime <= 0) return '';
+    
+    const perc = d.totalQs > 0 ? Math.round(d.correctQs / d.totalQs * 100) : null;
+    const percLabel = perc !== null ? perc+'%' : 'Só teoria';
+    const cls = perc === null ? '' : perc >= 80 ? 'perc-green' : perc >= 60 ? 'perc-warn' : 'perc-danger';
+    const fillCls = perc === null ? 'fill-accent' : perc >= 80 ? 'fill-green' : perc >= 60 ? 'fill-warn' : 'fill-danger';
+    
+    const matObj = state.materias.find(m => m.name === matName);
+    let ctSub = '';
+    
+    if (matObj && matObj.conteudos) {
+       ctSub = matObj.conteudos.map(ct => {
+          const ctId = ct.id || ct.name || ct;
+          const ctName = ct.name || ct;
+          const cd = state.aggregates.conteudos[ctId];
+          if (!cd || cd.totalTime <= 0) return '';
+          const cp = cd.totalQs > 0 ? Math.round(cd.correctQs / cd.totalQs * 100) : null;
+          return `<div class="conteudo-stat-item">
+            <div class="conteudo-stat-item-name">📖 ${escHtml(ctName)}</div>
+            <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+              <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text3);">${formatTime(cd.totalTime)}</span>
+              ${cp!==null ? aprovBadge(cp) : '<span style="color:var(--text3);font-size:11px;">—</span>'}
+            </div>
+          </div>`;
+       }).join('');
+    }
 
     return `<div class="materia-stat-row">
-      <div class="materia-stat-header"><div class="materia-stat-name">${escHtml(mat)}</div><div class="materia-stat-time">${formatTime(d.secs)}</div></div>
+      <div class="materia-stat-header"><div class="materia-stat-name">${escHtml(matName)}</div><div class="materia-stat-time">${formatTime(d.totalTime)}</div></div>
       <div style="display:flex;justify-content:space-between;margin-bottom:4px;"><span style="font-size:11px;color:var(--text3);">Aproveitamento</span><span style="font-size:12px;font-weight:600;" class="${cls}">${percLabel}</span></div>
       <div class="progress-bar-bg"><div class="progress-bar-fill ${fillCls}" style="width:${perc??0}%;"></div></div>
-      ${ctSub}
+      ${ctSub ? `<div class="conteudo-stat-sub">${ctSub}</div>` : ''}
     </div>`;
   }).join('');
 }
 
 function renderAproveitamentoGeral() {
-  const el=document.getElementById('aproveitamento-geral');
-  const {total:tQ,correct:tC}=sessionTotals(state.sessions);
-  const perc=tQ>0?Math.round(tC/tQ*100):null;
+  const el = document.getElementById('aproveitamento-geral');
+  const totals = getAggTotal();
+  const perc = totals.totalQs > 0 ? Math.round(totals.correctQs / totals.totalQs * 100) : null;
+  
   if (perc===null){el.innerHTML='<div class="empty" style="padding:24px;"><div class="ico">🎯</div><p>Resolva questões em suas sessões para ver o aproveitamento.</p></div>';return;}
   const cls=perc>=80?'perc-green':perc>=60?'perc-warn':'perc-danger';
   const fillCls=perc>=80?'fill-green':perc>=60?'fill-warn':'fill-danger';
   const msg=perc>=80?'🎉 Excelente aproveitamento! Continue assim.':perc>=60?'📈 Bom ritmo! Busque melhorar acima de 80%.':'⚠️ Abaixo de 60%. Revise os conteúdos com mais erros.';
+  
   el.innerHTML=`
     <div style="text-align:center;padding:20px 0 12px;">
       <div style="font-family:'DM Mono',monospace;font-size:56px;font-weight:500;letter-spacing:-2px;" class="${cls}">${perc}%</div>
-      <div style="font-size:12px;color:var(--text3);margin-top:4px;">${tC} acertos de ${tQ} questões</div>
+      <div style="font-size:12px;color:var(--text3);margin-top:4px;">${totals.correctQs} acertos de ${totals.totalQs} questões</div>
     </div>
     <div class="progress-bar-bg" style="height:10px;margin-bottom:16px;"><div class="progress-bar-fill ${fillCls}" style="width:${perc}%;"></div></div>
     <div style="font-size:13px;color:var(--text2);text-align:center;line-height:1.6;">${msg}</div>`;
 }
 
+// 7. RENDER HISTORY COM BOTÃO LOAD MORE
 function renderHistory() {
   const el=document.getElementById('sessions-history');
   if (!state.sessions.length){el.innerHTML='<div class="empty"><div class="ico">📋</div><p>Nenhuma sessão registrada ainda.</p></div>';return;}
-  el.innerHTML=`<table class="sessions-table">
+  
+  let html = `<table class="sessions-table">
     <thead><tr><th>Data</th><th>Matéria</th><th>Duração</th><th>Conteúdos & Questões</th><th>Aproveit.</th><th>Tipo</th><th></th></tr></thead>
     <tbody>${state.sessions.map((s,i)=>{
-      const {total:tQ,correct:tC}=sessionTotals([s]);
-      const perc=tQ>0?Math.round(tC/tQ*100):null;
+      let sQs=0, sC=0;
+      s.conteudos.forEach(c => { if(!c.onlyTheory){ sQs+=(c.total||0); sC+=(c.correct||0); }});
+      
+      const perc=sQs>0?Math.round(sC/sQs*100):null;
       const aprovStr=perc!==null?aprovBadge(perc):s.conteudos.length?'<span class="badge badge-neutral">Só teoria</span>':'<span class="badge badge-neutral">—</span>';
+      
       const ctDetail=s.conteudos.length
         ? s.conteudos.map(c=>{
             const cp=(!c.onlyTheory&&c.total>0)?Math.round(c.correct/c.total*100):null;
             return `<div style="font-size:11px;color:var(--text2);">📖 ${escHtml(c.name)}${cp!==null?' · '+c.correct+'/'+c.total+' ('+cp+'%)':c.onlyTheory?' · teoria':''}</div>`;
           }).join('')
         : '<span style="font-size:12px;color:var(--text3);">Estudo geral</span>';
+        
       return `<tr>
         <td style="white-space:nowrap;color:var(--text2);font-size:12px;">${fmtDate(s.date)}</td>
         <td><strong>${escHtml(s.materia)}</strong>${s.obs?`<div style="font-size:11px;color:var(--text3);font-style:italic;">${escHtml(s.obs)}</div>`:''}</td>
@@ -1143,16 +1406,52 @@ function renderHistory() {
       </tr>`;
     }).join('')}</tbody>
   </table>`;
+  
+  if (hasMoreSessions) {
+    html += `<button id="btn-load-more" class="btn btn-secondary" style="width:100%;margin-top:16px;justify-content:center;" onclick="loadMoreSessions()">Carregar mais sessões antigas...</button>`;
+  }
+  
+  el.innerHTML = html;
 }
 
+// 6. DELETE SESSÃO SEGURA
 async function deleteSession(i) {
-  if (!confirm('Remover esta sessão?')) return;
-  const idToDel = state.sessions[i].id;
+  if (!confirm("Tem certeza que deseja apagar esta sessão?")) return;
+  const sessionToDel = state.sessions[i];
+  
   state.sessions.splice(i,1); 
-  await deleteSessionDB(idToDel);
-  renderDashboard(); 
+  
+  // Deduzir os valores dessa sessão diretamente do Agregado Central (O(1))
+  removeSessionFromAggregates(sessionToDel);
+
+  await deleteSessionDB(sessionToDel.id);
+  await saveAggregatesDB();
+  
+  notify(); 
   showToast('Sessão removida.');
 }
+
+// 11. INSIGHTS
+function renderInsights(){
+  const el = document.getElementById('an-top-conteudos-wrap');
+  if(!el) return;
+
+  const top = Object.keys(state.aggregates.conteudos)
+    .map(id=>({
+      id,
+      score:calcPrioridade(id),
+      trend:calcTrend(id)
+    }))
+    .sort((a,b)=>b.score-a.score)
+    .slice(0,5);
+
+  el.innerHTML = top.map(t=>`
+    <div style="font-size:12px;padding:6px 0;">
+      🔥 ${escHtml(t.id)} — prioridade ${t.score.toFixed(1)} (${t.trend})
+    </div>
+  `).join('');
+}
+
 
 // ══════════════════════════════════════════════════
 //  UTILS
@@ -1196,9 +1495,10 @@ function anBuildPoints(materiaFilter, conteudoFilter) {
     const d = new Date(s.date);
     s.conteudos.forEach(c => {
       if (c.onlyTheory || !c.total) return;
-      if (conteudoFilter !== '__all__' && c.name !== conteudoFilter) return;
+      const cName = c.name || c;
+      if (conteudoFilter !== '__all__' && cName !== conteudoFilter) return;
       const perc = Math.round(c.correct / c.total * 100);
-      pts.push({ date: d, dateStr: d.toLocaleDateString('pt-BR'), materia: s.materia, conteudo: c.name || '(geral)', perc });
+      pts.push({ date: d, dateStr: d.toLocaleDateString('pt-BR'), materia: s.materia, conteudo: cName || '(geral)', perc });
     });
   });
   pts.sort((a, b) => a.date - b.date);
@@ -1265,7 +1565,7 @@ function anOnMateriaChange() {
   const seen = new Set();
   state.sessions.forEach(s => {
     if (materia !== '__all__' && s.materia !== materia) return;
-    s.conteudos.forEach(c => { if (c.name) seen.add(c.name); });
+    s.conteudos.forEach(c => { const cName = c.name || c; if (cName) seen.add(cName); });
   });
   [...seen].sort().forEach(c => {
     const o = document.createElement('option'); o.value = c; o.textContent = c; sel.appendChild(o);
@@ -1343,7 +1643,9 @@ function anRender() {
   }
 
   anRenderWeeklyTable(allPts);
-  anRenderTopConteudos(allPts);
+  if(document.getElementById('page-analytics').classList.contains('active')) {
+     anRenderTopConteudos(allPts);
+  }
   anRenderPeriodSummary(allPts);
 }
 
@@ -1645,17 +1947,11 @@ function anRenderPeriodSummary(pts) {
     </div>`;
 }
 
-// ══════════════════════════════════════════════════
-//  INICIALIZAÇÃO ASSÍNCRONA
-// ══════════════════════════════════════════════════
-async function init(){
-  await loadState();
-  refreshAllSelects();
-  setDefaultManualDate();
-  renderCronometroPage();
-}
+// 12. SUBSCRIBE REATIVIDADE NO FINAL
+subscribe(renderDashboard);
+subscribe(renderMaterias);
+subscribe(anRender);
 
-init();
 </script>
 </body>
 </html>
