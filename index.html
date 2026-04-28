@@ -368,7 +368,7 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
   <div class="filter-bar">
     <div class="filter-group"><div class="filter-label">Matéria</div><div class="select-wrap"><select id="an-materia-sel" onchange="anOnMateriaChange()"><option value="__all__">Todas</option></select></div></div>
     <div class="filter-group"><div class="filter-label">Conteúdo</div><div class="select-wrap"><select id="an-conteudo-sel" onchange="anRender()"><option value="__all__">Todos</option></select></div></div>
-    <div class="filter-group" style="min-width:140px;max-width:180px;"><div class="filter-label">Meta de aproveitamento</div><div class="goal-row"><input type="range" id="an-goal-range" min="0" max="100" step="5" value="70" oninput="anUpdateGoal(this.value)"><div class="goal-value-display" id="an-goal-display">70%</div></div></div>
+    <div class="filter-group" style="min-width:140px;max-width:180px;"><div class="filter-label">Meta de aproveitamento</div><div class="goal-row"><input type="range" id="an-goal-range" min="0" max="100" step="5" value="70" onchange="anUpdateGoal(this.value)"><div class="goal-value-display" id="an-goal-display">70%</div></div></div>
     <div class="filter-group" style="min-width:auto;flex:0;"><div class="filter-label">Visualização</div><div class="toggle-group"><div class="toggle-pill active" id="an-mode-raw" onclick="anSetMode('raw')">Dados reais</div><div class="toggle-pill" id="an-mode-weekly" onclick="anSetMode('weekly')">Média semanal</div></div></div>
   </div>
   <div style="margin-bottom:16px;"><div class="filter-label" style="margin-bottom:8px;">Comparar matérias</div><div class="toggle-group" id="an-subject-pills"></div></div>
@@ -670,7 +670,6 @@ function removeSessionFromAggregates(session){
         agg.totalQs = Math.max(0, agg.totalQs - (ct.total||0));
         agg.correctQs = Math.max(0, agg.correctQs - (ct.correct||0));
       }
-      agg.last5 = agg.last5.filter(x => x.date !== session.date);
     }
   });
 }
@@ -1023,7 +1022,7 @@ async function saveSession() {
   }
 
   const novaSessao = {
-    id: Date.now(),
+    id: crypto.randomUUID(),
     date: new Date().toISOString(),
     materia: currentMateria,
     duration: timerSeconds,
@@ -1203,7 +1202,7 @@ async function saveManualSession() {
   const dateObj=new Date(dateVal+'T12:00:00');
 
   const novaSessao = {
-    id: Date.now(),
+    id: crypto.randomUUID(),
     date: dateObj.toISOString(),
     materia, duration,
     manual: true, obs,
