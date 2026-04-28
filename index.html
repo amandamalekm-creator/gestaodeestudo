@@ -642,6 +642,9 @@ function updateAggregates(session){
     if(!ct.onlyTheory){
       agg.totalQs += ct.total||0;
       agg.correctQs += ct.correct||0;
+      // ---> ADICIONE ESTAS DUAS LINHAS PARA A MATÉRIA TAMBÉM RECEBER AS QUESTÕES <---
+          state.aggregates.materias[materia].totalQs += ct.total||0;
+          state.aggregates.materias[materia].correctQs += ct.correct||0;
     }
 
     agg.lastStudied = date;
@@ -669,6 +672,11 @@ function removeSessionFromAggregates(session){
       if(!ct.onlyTheory){
         agg.totalQs = Math.max(0, agg.totalQs - (ct.total||0));
         agg.correctQs = Math.max(0, agg.correctQs - (ct.correct||0));
+        // ---> ADICIONE ESTAS DUAS LINHAS AQUI TAMBÉM <---
+            if (state.aggregates.materias[materia]) {
+              state.aggregates.materias[materia].totalQs = Math.max(0, state.aggregates.materias[materia].totalQs - (ct.total||0));
+              state.aggregates.materias[materia].correctQs = Math.max(0, state.aggregates.materias[materia].correctQs - (ct.correct||0));
+            }
       }
     }
   });
