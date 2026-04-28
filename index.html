@@ -1958,9 +1958,6 @@ subscribe(anRender);
 async function init(){
   await loadState();
   
-  // Constrói os aggregates com base nos dados que vieram do banco ao iniciar o App
-  state.sessions.forEach(updateAggregates);
-  
   refreshAllSelects();
   setDefaultManualDate();
   renderCronometroPage();
