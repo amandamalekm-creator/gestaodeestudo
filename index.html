@@ -757,7 +757,11 @@ function renderMaterias() {
             <div class="conteudo-row-name">${escHtml(ctName)}</div>
             <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text3);">${formatTime(secs)}</span>
             ${perc!==null ? aprovBadge(perc) : '<span style="color:var(--text3);font-size:11px;">—</span>'}
-            <button class="conteudo-del" onclick="deleteConteudo(${i},${j})">✕</button>
+            <div style="display:flex; gap:2px; margin-right: 4px;">
+              <button class="conteudo-del" style="padding:2px 6px; font-size: 10px; ${j===0 ? 'opacity:0.2; cursor:default;' : ''}" onclick="moveConteudo(${i},${j},-1)" title="Subir">▲</button>
+              <button class="conteudo-del" style="padding:2px 6px; font-size: 10px; ${j===c.length-1 ? 'opacity:0.2; cursor:default;' : ''}" onclick="moveConteudo(${i},${j},1)" title="Descer">▼</button>
+            </div>
+            <button class="conteudo-del" onclick="deleteConteudo(${i},${j})" title="Apagar">✕</button>
           </div>`;
         }).join('')
       : '<div style="font-size:12px;color:var(--text3);padding:10px 0;">Nenhum conteúdo cadastrado.</div>';
@@ -830,6 +834,25 @@ async function deleteConteudo(mi,ci) {
   if(p){p.classList.add('open');t.classList.add('open');}
   refreshAllSelects();
   showToast('Conteúdo removido.');
+}
+  async function moveConteudo(mi, ci, dir) {
+  const conteudos = state.materias[mi].conteudos;
+  
+  // Impede de subir o primeiro ou descer o último
+  if ((dir === -1 && ci === 0) || (dir === 1 && ci === conteudos.length - 1)) return;
+
+  // Troca os itens de posição na lista
+  const temp = conteudos[ci];
+  conteudos[ci] = conteudos[ci + dir];
+  conteudos[ci + dir] = temp;
+
+  // Salva na nuvem e recarrega a tela
+  await saveMateriasDB();
+  renderMaterias();
+  
+  // Mantém a pastinha da matéria aberta para você ver o resultado
+  const p = document.getElementById('cp-'+mi), t = document.getElementById('mt-'+mi);
+  if(p){ p.classList.add('open'); t.classList.add('open'); }
 }
 
 document.getElementById('new-materia-input').addEventListener('keydown',e=>{if(e.key==='Enter')addMateria();});
