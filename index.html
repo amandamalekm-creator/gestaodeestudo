@@ -235,6 +235,17 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
 .no-data-chart p { font-size:13px; }
 .swatch { display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:5px; flex-shrink:0; }
 @media(max-width:780px){ .analytics-grid { grid-template-columns:1fr; } .filter-bar { flex-direction:column; } }
+.lei-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow); display: flex; flex-direction: column; }
+.lei-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
+.lei-tag { font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--accent); background: var(--accent-light); padding: 2px 8px; border-radius: 4px; }
+.lei-ciclo-badge { font-size: 11px; color: var(--accent2); font-weight: 600; }
+.lei-progress-bar { height: 6px; background: var(--surface2); border-radius: 99px; margin: 10px 0; overflow: hidden; }
+.lei-progress-fill { height: 100%; background: var(--green); transition: width 0.3s; }
+.lei-checklist { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+.lei-item { display: flex; align-items: center; gap: 10px; padding: 10px; background: var(--surface2); border-radius: 8px; cursor: pointer; font-size: 13px; transition: 0.2s; }
+.lei-item:hover { background: var(--border); }
+.lei-item.done { opacity: 0.5; text-decoration: line-through; background: none; border: 1px solid var(--border); }
+.lei-item input { pointer-events: none; }
 </style>
 </head>
 <body>
@@ -256,6 +267,7 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
     <button class="nav-btn" onclick="showPage('dashboard')"><span class="ico">📊</span><span>Dashboard</span></button>
     <button class="nav-btn" onclick="showPage('materias')"><span class="ico">📚</span><span>Matérias</span></button>
     <button class="nav-btn" onclick="showPage('analytics')"><span class="ico">📈</span><span>Analytics</span></button>
+    <button class="nav-btn" onclick="showPage('leis')"><span class="ico">📖</span><span>Lei Seca</span></button>
     <button class="nav-btn" onclick="fazerLogout()" style="margin-top:auto; color:var(--danger);"><span class="ico">🚪</span><span>Sair</span></button>
   </nav>
   <div class="sidebar-footer">Aprovado Nuvem V4
@@ -386,6 +398,17 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
     <div class="chart-card"><div class="card-title">Resumo do Período</div><div id="an-period-summary-wrap"></div></div>
   </div>
 </section>
+  <section class="page" id="page-leis">
+  <h1 class="page-title">Ciclos de Lei Seca</h1>
+  <p class="page-sub">Divida a lei em blocos e vença o edital por metas de leitura.</p>
+  
+  <div style="margin-bottom: 20px;">
+    <button class="btn btn-primary" onclick="openLeiModal()">+ Novo Caderno de Lei</button>
+  </div>
+
+  <div id="leis-container" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 20px;">
+    </div>
+</section>
 </main>
 </div>
 
@@ -399,6 +422,32 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
     <div id="modal-ct-list" class="session-conteudo-list" style="margin-bottom:10px;"></div>
     <div class="add-ct-row" id="modal-add-ct-row"><div class="select-wrap" style="flex:1;"><select id="modal-ct-select"><option value="">— Selecione um conteúdo —</option></select></div><button class="btn btn-ghost btn-sm" onclick="addModalConteudo()">+ Adicionar</button></div>
     <div class="modal-actions"><button class="btn btn-secondary" onclick="cancelFinish()">Cancelar</button><button class="btn btn-primary" onclick="saveSession()">✓ Salvar Sessão</button></div>
+  </div>
+</div>
+  <div class="modal-overlay" id="lei-modal">
+  <div class="modal">
+    <div class="modal-title">Novo Caderno de Lei</div>
+    <div class="modal-sub">Defina os blocos de leitura (ex: Art. 1 ao 10).</div>
+    
+    <div class="form-group">
+      <label class="form-label">Nome da Lei / Diploma</label>
+      <input type="text" id="lei-nome" placeholder="Ex: CF/88 ou Código Civil">
+    </div>
+    
+    <div class="form-group">
+      <label class="form-label">Matéria Vinculada</label>
+      <div class="select-wrap"><select id="lei-materia-select"></select></div>
+    </div>
+
+    <div class="divider"></div>
+    <div class="section-label">Blocos de Estudo (Um por linha)</div>
+    <textarea id="lei-blocos" style="min-height: 120px;" placeholder="Art. 1 ao 4&#10;Art. 5&#10;Art. 6 ao 11..."></textarea>
+    <p style="font-size: 11px; color: var(--text3); margin-top: 5px;">Dica: Cada linha será uma caixinha para marcar.</p>
+
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeLeiModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="criarCadernoLei()">Criar Caderno</button>
+    </div>
   </div>
 </div>
 <div class="toast" id="toast"></div>
@@ -426,6 +475,7 @@ let currentUser = null;
 let state = { 
   materias: [], 
   sessions: [],
+  leis: [],
   aggregates: { materias: {}, conteudos: {} }
 };
 
@@ -502,7 +552,9 @@ async function loadState() {
       else state.materias = [{name:'Regimento Interno', conteudos:[]}];
       await saveMateriasDB();
     }
-
+// Puxar Leis
+    const leisDoc = await getUserRef().collection('Dados').doc('Leis').get();
+    if (leisDoc.exists) state.leis = leisDoc.data().lista || [];
     // 2. Puxar Agregados (Resumo Geral do utilizador)
     const aggDoc = await getUserRef().collection('Dados').doc('Agregados').get();
     let needsMigration = false;
@@ -727,6 +779,7 @@ function showPage(name) {
   if (name==='materias') renderMaterias();
   if (name==='cronometro') renderCronometroPage();
   if (name==='analytics') renderAnalytics();
+  if (name==='leis') renderLeis();
 }
 
 // ══════════════════════════════════════════════════
@@ -2000,7 +2053,113 @@ function anRenderPeriodSummary(pts) {
       </div>
     </div>`;
 }
+// ══════════════════════════════════════════════════
+//  MOTOR DE LEI SECA
+// ══════════════════════════════════════════════════
+function openLeiModal() {
+  const sel = document.getElementById('lei-materia-select');
+  sel.innerHTML = state.materias.map(m => `<option value="${m.name}">${m.name}</option>`).join('');
+  document.getElementById('lei-modal').classList.add('open');
+}
 
+function closeLeiModal() { document.getElementById('lei-modal').classList.remove('open'); }
+
+async function criarCadernoLei() {
+  const nome = document.getElementById('lei-nome').value.trim();
+  const materia = document.getElementById('lei-materia-select').value;
+  const blocosTexto = document.getElementById('lei-blocos').value.trim();
+  
+  if (!nome || !blocosTexto) { showToast("Preencha o nome e os blocos."); return; }
+
+  const novosBlocos = blocosTexto.split('\n').map(b => ({ texto: b.trim(), done: false })).filter(b => b.texto);
+  
+  const novaLei = {
+    id: crypto.randomUUID(),
+    nome,
+    materia,
+    ciclo: 1,
+    blocos: novosBlocos
+  };
+
+  state.leis.push(novaLei);
+  await saveLeisDB();
+  renderLeis();
+  closeLeiModal();
+  showToast("Caderno de Lei criado!");
+  
+  document.getElementById('lei-nome').value = '';
+  document.getElementById('lei-blocos').value = '';
+}
+
+async function saveLeisDB() {
+  await getUserRef().collection('Dados').doc('Leis').set({ lista: state.leis });
+}
+
+function renderLeis() {
+  const container = document.getElementById('leis-container');
+  if (!state.leis.length) {
+    container.innerHTML = `<div class="empty" style="grid-column: 1/-1;"><div class="ico">📖</div><p>Nenhum caderno de lei seca.<br>Crie o primeiro para começar o ciclo!</p></div>`;
+    return;
+  }
+
+  container.innerHTML = state.leis.map((lei, lIdx) => {
+    const concluídos = lei.blocos.filter(b => b.done).length;
+    const total = lei.blocos.length;
+    const perc = Math.round((concluídos / total) * 100);
+    const todosLidos = concluídos === total;
+
+    return `
+      <div class="lei-card">
+        <div class="lei-header">
+          <div>
+            <span class="lei-tag">${escHtml(lei.materia)}</span>
+            <div style="font-family:'DM Serif Display',serif; font-size:18px; margin-top:5px;">${escHtml(lei.nome)}</div>
+          </div>
+          <div class="lei-ciclo-badge">Ciclo ${lei.ciclo}</div>
+        </div>
+        
+        <div class="lei-progress-bar"><div class="lei-progress-fill" style="width: ${perc}%"></div></div>
+        <div style="font-size:11px; color:var(--text2); margin-bottom:15px;">${perc}% concluído (${concluídos} de ${total} blocos)</div>
+
+        <div class="lei-checklist">
+          ${lei.blocos.map((b, bIdx) => `
+            <div class="lei-item ${b.done ? 'done' : ''}" onclick="toggleLeiCheck(${lIdx}, ${bIdx})">
+              <input type="checkbox" ${b.done ? 'checked' : ''}>
+              <span>${escHtml(b.texto)}</span>
+            </div>
+          `).join('')}
+        </div>
+
+        ${todosLidos ? 
+          `<button class="btn btn-accent2" style="margin-top:20px; width:100%; justify-content:center;" onclick="resetCiclo(${lIdx})">↺ Reiniciar Ciclo (Ir p/ Ciclo ${lei.ciclo + 1})</button>` : 
+          `<button class="btn-ghost" style="margin-top:20px; font-size:11px; border:none; color:var(--danger);" onclick="deleteLei(${lIdx})">Remover Caderno</button>`
+        }
+      </div>
+    `;
+  }).join('');
+}
+
+async function toggleLeiCheck(lIdx, bIdx) {
+  state.leis[lIdx].blocos[bIdx].done = !state.leis[lIdx].blocos[bIdx].done;
+  await saveLeisDB();
+  renderLeis();
+}
+
+async function resetCiclo(lIdx) {
+  if (!confirm("Parabéns por concluir a lei! Deseja zerar o progresso para iniciar uma nova leitura (próximo ciclo)?")) return;
+  state.leis[lIdx].ciclo += 1;
+  state.leis[lIdx].blocos.forEach(b => b.done = false);
+  await saveLeisDB();
+  renderLeis();
+  showToast("Ciclo reiniciado! Bons estudos.");
+}
+
+async function deleteLei(lIdx) {
+  if (!confirm("Deseja apagar este caderno de lei permanentemente?")) return;
+  state.leis.splice(lIdx, 1);
+  await saveLeisDB();
+  renderLeis();
+}
 // 12. SUBSCRIBE REATIVIDADE NO FINAL
 subscribe(renderDashboard);
 subscribe(renderMaterias);
