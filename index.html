@@ -251,6 +251,10 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
 .lei-item-actions { margin-left: auto; display: flex; gap: 8px; }
 .btn-toggle-item { background: none; border: none; cursor: pointer; font-size: 14px; opacity: 0.5; transition: 0.2s; }
 .btn-toggle-item:hover { opacity: 1; }
+.btn-important { background: none; border: none; cursor: pointer; font-size: 14px; opacity: 0.2; transition: 0.2s; }
+.btn-important.active { opacity: 1; filter: drop-shadow(0 0 2px rgba(192,57,43,0.5)); }
+.lei-item.is-important { border-left: 3px solid var(--danger); background: var(--danger-light); }
+.lei-item.is-important.done { background: none; border-left: 3px solid var(--border); }
 </style>
 </head>
 <body>
@@ -2112,13 +2116,13 @@ async function criarCadernoLei() {
     
     lei.blocos = linhas.map(texto => {
       const bOld = lei.blocos.find(o => o.texto === texto.trim());
-      return bOld ? bOld : { texto: texto.trim(), done: false, disabled: false };
+      return bOld ? bOld : { texto: texto.trim(), done: false, disabled: false, importante: false };
     });
   } else {
     state.leis.push({
       id: crypto.randomUUID(),
       nome, materia, ciclo: 1,
-      blocos: linhas.map(l => ({ texto: l.trim(), done: false, disabled: false }))
+      blocos: linhas.map(l => ({ texto: l.trim(), done: false, disabled: false, importante: false }))
     });
   }
 
@@ -2178,13 +2182,14 @@ function renderLeis() {
         ${perc}% concluído (${concluídos} de ${total} metas ativas)
       </div>
 
-      <div class="lei-checklist">
+     <div class="lei-checklist">
         ${lei.blocos.map((b, bIdx) => `
-          <div class="lei-item ${b.done ? 'done' : ''} ${b.disabled ? 'item-disabled' : ''}" 
+          <div class="lei-item ${b.done ? 'done' : ''} ${b.disabled ? 'item-disabled' : ''} ${b.importante ? 'is-important' : ''}" 
                onclick="${b.disabled ? '' : `toggleLeiCheck(${lIdx}, ${bIdx})`}">
             <input type="checkbox" ${b.done ? 'checked' : ''} ${b.disabled ? 'disabled' : ''}>
-            <span>${escHtml(b.texto)}</span>
+            <span style="${b.importante && !b.done && !b.disabled ? 'color: var(--danger); font-weight: 500;' : ''}">${b.importante ? '🔥 ' : ''}${escHtml(b.texto)}</span>
             <div class="lei-item-actions">
+               <button class="btn-important ${b.importante ? 'active' : ''}" onclick="event.stopPropagation(); toggleLeiImportant(${lIdx}, ${bIdx})" title="Alta Incidência">🔥</button>
                <button class="btn-toggle-item" onclick="event.stopPropagation(); toggleLeiItemDisabled(${lIdx}, ${bIdx})" title="Habilitar/Desabilitar">
                  ${b.disabled ? '👁️' : '🚫'}
                </button>
@@ -2210,6 +2215,12 @@ async function toggleLeiItemDisabled(lIdx, bIdx) {
   const item = state.leis[lIdx].blocos[bIdx];
   item.disabled = !item.disabled;
   if (item.disabled) item.done = false; 
+  await saveLeisDB();
+  renderLeis();
+}
+async function toggleLeiImportant(lIdx, bIdx) {
+  const item = state.leis[lIdx].blocos[bIdx];
+  item.importante = !item.importante;
   await saveLeisDB();
   renderLeis();
 }
