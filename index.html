@@ -255,6 +255,12 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
 .btn-important.active { opacity: 1; filter: drop-shadow(0 0 2px rgba(192,57,43,0.5)); }
 .lei-item.is-important { border-left: 3px solid var(--danger); background: var(--danger-light); }
 .lei-item.is-important.done { background: none; border-left: 3px solid var(--border); }
+.goal-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom: 24px; box-shadow: var(--shadow); }
+.goal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.goal-title { font-family: 'DM Serif Display', serif; font-size: 20px; color: var(--accent); display: flex; align-items: center; gap: 8px; }
+.goal-edit { font-size: 11px; color: var(--text3); cursor: pointer; background: none; border: none; transition: 0.2s; padding: 4px 8px; border-radius: 4px; font-family:'DM Sans',sans-serif; }
+.goal-edit:hover { background: var(--surface2); color: var(--text); }
+.goal-msg { margin-top: 16px; padding: 12px 16px; background: var(--accent2-light); border-left: 3px solid var(--accent2); border-radius: 4px; font-size: 12px; color: var(--text2); line-height: 1.5; }
 </style>
 </head>
 <body>
@@ -418,7 +424,9 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
     <div id="leis-selector" class="toggle-group"></div>
   </div>
 
-  <div id="lei-stats-panel" style="display:none; margin-bottom: 24px;"></div>
+ <div id="lei-stats-panel" style="display:none; margin-bottom: 24px;"></div>
+
+  <div id="lei-goal-container"></div>
 
   <div id="leis-container">
     </div>
@@ -568,7 +576,12 @@ async function loadState() {
     }
 // Puxar Leis
     const leisDoc = await getUserRef().collection('Dados').doc('Leis').get();
-    if (leisDoc.exists) state.leis = leisDoc.data().lista || [];
+    if (leisDoc.exists) {
+      state.leis = leisDoc.data().lista || [];
+      state.metaLeiSemana = leisDoc.data().metaSemana || 20; // Padrão: 20 blocos
+    } else {
+      state.metaLeiSemana = 20;
+    }
     // 2. Puxar Agregados (Resumo Geral do utilizador)
     const aggDoc = await getUserRef().collection('Dados').doc('Agregados').get();
     let needsMigration = false;
@@ -2133,15 +2146,20 @@ async function criarCadernoLei() {
 }
 
 async function saveLeisDB() {
-  await getUserRef().collection('Dados').doc('Leis').set({ lista: state.leis });
+  await getUserRef().collection('Dados').doc('Leis').set({ 
+    lista: state.leis, 
+    metaSemana: state.metaLeiSemana || 20 
+  });
 }
 
 function renderLeis() {
   const container = document.getElementById('leis-container');
   const selector = document.getElementById('leis-selector');
+  const goalContainer = document.getElementById('lei-goal-container');
   
   if (!state.leis.length) {
     selector.innerHTML = '';
+    goalContainer.innerHTML = '';
     container.innerHTML = `<div class="empty"><div class="ico">📖</div><p>Crie seu primeiro caderno.</p></div>`;
     return;
   }
@@ -2150,6 +2168,35 @@ function renderLeis() {
     <div class="toggle-pill ${currentSelectedLeiId === lei.id ? 'active' : ''}" 
          onclick="selectLei('${lei.id}')">${escHtml(lei.nome)}</div>
   `).join('');
+
+  // CÁLCULO E DESENHO DA META GLOBAL
+  const inicioSemana = getInicioSemana();
+  let lidosSemanaTotal = 0;
+  state.leis.forEach(l => {
+    if(l.historico) lidosSemanaTotal += l.historico.filter(d => new Date(d) >= inicioSemana).length;
+  });
+  
+  const meta = state.metaLeiSemana || 20;
+  const percMeta = Math.min(100, Math.round((lidosSemanaTotal / meta) * 100));
+  const faltam = Math.max(0, meta - lidosSemanaTotal);
+  
+  goalContainer.innerHTML = `
+    <div class="goal-card">
+      <div class="goal-header">
+        <div class="goal-title"><span>🎯</span> Meta da Semana</div>
+        <button class="goal-edit" onclick="editMetaLeiSemana()">✏️ Configurar</button>
+      </div>
+      <div class="progress-bar-bg"><div class="progress-bar-fill" style="background:var(--accent2); width:${percMeta}%;"></div></div>
+      <div style="display:flex; justify-content:space-between; font-size:13px; font-weight:500; margin-top:8px;">
+        <div style="color:var(--text2);">${lidosSemanaTotal} blocos lidos</div>
+        <div style="color:var(--accent); font-weight:600;">Meta: ${meta}</div>
+      </div>
+      ${faltam > 0 
+        ? `<div class="goal-msg"><strong>Bom ritmo! 🔥</strong> Faltam apenas ${faltam} blocos para bater a sua meta até domingo.</div>`
+        : `<div class="goal-msg" style="background:#e8f5ec; border-left-color:var(--green);"><strong>Missão Cumprida! 🏆</strong> Você já bateu a meta semanal. O que ler agora é lucro extra!</div>`
+      }
+    </div>
+  `;
 
   if (!currentSelectedLeiId) {
     container.innerHTML = `<div class="empty"><p>Escolha um caderno acima para estudar.</p></div>`;
@@ -2178,8 +2225,11 @@ function renderLeis() {
       </div>
       
       <div class="lei-progress-bar"><div class="lei-progress-fill" style="width: ${perc}%"></div></div>
-      <div style="font-size:12px; color:var(--text2); margin-bottom:15px; font-weight:600;">
+      <div style="font-size:12px; color:var(--text2); font-weight:600; margin-bottom:4px;">
         ${perc}% concluído (${concluídos} de ${total} metas ativas)
+      </div>
+      <div style="font-size:11px; color:var(--text3); margin-bottom:15px;">
+        Neste caderno: <strong style="color:var(--text);">${(lei.historico || []).filter(d => new Date(d) >= inicioSemana).length} blocos lidos nesta semana</strong>
       </div>
 
      <div class="lei-checklist">
@@ -2225,9 +2275,38 @@ async function toggleLeiImportant(lIdx, bIdx) {
   renderLeis();
 }
 async function toggleLeiCheck(lIdx, bIdx) {
-  state.leis[lIdx].blocos[bIdx].done = !state.leis[lIdx].blocos[bIdx].done;
+  const lei = state.leis[lIdx];
+  if (!lei.historico) lei.historico = []; // Cria o diário se não existir
+  
+  lei.blocos[bIdx].done = !lei.blocos[bIdx].done;
+  
+  if (lei.blocos[bIdx].done) {
+    lei.historico.push(new Date().toISOString()); // Anota a data que leu
+  } else {
+    lei.historico.pop(); // Remove se desmarcar sem querer
+  }
+  
   await saveLeisDB();
   renderLeis();
+}
+
+function getInicioSemana() {
+  const d = new Date();
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Volta para Segunda-feira
+  const monday = new Date(d.setDate(diff));
+  monday.setHours(0,0,0,0);
+  return monday;
+}
+
+async function editMetaLeiSemana() {
+  const novaMeta = prompt("Quantos blocos você quer ler por semana?", state.metaLeiSemana || 20);
+  if (novaMeta && !isNaN(novaMeta) && Number(novaMeta) > 0) {
+    state.metaLeiSemana = Number(novaMeta);
+    await saveLeisDB();
+    renderLeis();
+    showToast("Meta semanal atualizada!");
+  }
 }
 
 async function resetCiclo(lIdx) {
