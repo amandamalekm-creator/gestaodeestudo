@@ -1350,9 +1350,15 @@ function renderGeralStats() {
   const totals = getAggTotal();
   const perc = totals.totalQs > 0 ? Math.round(totals.correctQs / totals.totalQs * 100) : null;
   const percColor = perc === null ? 'var(--text)' : perc >= 80 ? 'var(--green)' : perc >= 60 ? 'var(--warn)' : 'var(--danger)';
-  
+
+  // Calcula o tempo filtrando as sessões pela data de hoje
+  const hoje = fmtDateShort(new Date().toISOString());
+  const tempoHoje = state.sessions
+    .filter(s => fmtDateShort(s.date) === hoje)
+    .reduce((acc, s) => acc + s.duration, 0);
+
   document.getElementById('stats-geral').innerHTML=`
-    <div class="stat-card"><div class="stat-label">⏱ Tempo Total</div><div class="stat-value">${formatTime(totals.totalTime)}</div><div class="stat-sub">${(totals.totalTime/3600).toFixed(1)}h acumuladas</div></div>
+    <div class="stat-card"><div class="stat-label">🔥 Estudado Hoje</div><div class="stat-value" style="color:var(--accent);">${formatTime(tempoHoje)}</div><div class="stat-sub">Total acumulado: ${formatTime(totals.totalTime)}</div></div>
     <div class="stat-card"><div class="stat-label">📝 Questões</div><div class="stat-value">${totals.totalQs}</div><div class="stat-sub">${totals.correctQs} acertos registrados</div></div>
     <div class="stat-card"><div class="stat-label">🎯 Aproveitamento</div><div class="stat-value" style="color:${percColor};">${perc!==null?perc+'%':'—'}</div><div class="stat-sub">${totals.totalQs>0?totals.correctQs+' de '+totals.totalQs:' Sem questões'}</div></div>`;
 }
