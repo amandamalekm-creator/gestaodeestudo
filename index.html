@@ -947,7 +947,15 @@ function addModalConteudo() {
   const name=sel.value;
   if (!name) { showToast('Selecione um conteúdo para adicionar.'); return; }
   if (modalConteudos.find(c=>c.name===name)) { showToast('Conteúdo já adicionado.'); return; }
-  modalConteudos.push({ name, total:0, correct:0, onlyTheory:false });
+
+  const mat = getMateriaObj(currentMateria);
+  let origId = null;
+  if (mat && mat.conteudos) {
+    const orig = mat.conteudos.find(c => (c.name || c) === name);
+    if (orig && orig.id) origId = orig.id;
+  }
+
+  modalConteudos.push({ id: origId, name, total:0, correct:0, onlyTheory:false });
   populateModalCtSelect();
   renderModalCtList();
 }
@@ -1121,7 +1129,16 @@ function addManualConteudo() {
   const sel=document.getElementById('manual-ct-select'), name=sel.value;
   if (!name) { showToast('Selecione um conteúdo para adicionar.'); return; }
   if (manualConteudos.find(c=>c.name===name)) { showToast('Conteúdo já adicionado.'); return; }
-  manualConteudos.push({ name, total:0, correct:0, onlyTheory:false });
+
+  const matName = document.getElementById('manual-materia-select').value;
+  const mat = getMateriaObj(matName);
+  let origId = null;
+  if (mat && mat.conteudos) {
+    const orig = mat.conteudos.find(c => (c.name || c) === name);
+    if (orig && orig.id) origId = orig.id;
+  }
+
+  manualConteudos.push({ id: origId, name, total:0, correct:0, onlyTheory:false });
   populateManualCtSelect();
   renderManualCtList();
 }
