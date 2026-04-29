@@ -246,6 +246,11 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
 .lei-item:hover { background: var(--border); }
 .lei-item.done { opacity: 0.5; text-decoration: line-through; background: none; border: 1px solid var(--border); }
 .lei-item input { pointer-events: none; }
+.lei-item.item-disabled { opacity: 0.25; filter: grayscale(1); background: var(--surface); border: 1px dashed var(--border); }
+.lei-item.item-disabled span { text-decoration: none !important; color: var(--text3); }
+.lei-item-actions { margin-left: auto; display: flex; gap: 8px; }
+.btn-toggle-item { background: none; border: none; cursor: pointer; font-size: 14px; opacity: 0.5; transition: 0.2s; }
+.btn-toggle-item:hover { opacity: 1; }
 </style>
 </head>
 <body>
@@ -398,15 +403,20 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
     <div class="chart-card"><div class="card-title">Resumo do Período</div><div id="an-period-summary-wrap"></div></div>
   </div>
 </section>
-  <section class="page" id="page-leis">
+ <section class="page" id="page-leis">
   <h1 class="page-title">Ciclos de Lei Seca</h1>
-  <p class="page-sub">Divida a lei em blocos e vença o edital por metas de leitura.</p>
+  <p class="page-sub">Selecione um caderno ou crie um novo para iniciar sua leitura por metas.</p>
   
-  <div style="margin-bottom: 20px;">
-    <button class="btn btn-primary" onclick="openLeiModal()">+ Novo Caderno de Lei</button>
+  <div style="margin-bottom: 24px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+    <button class="btn btn-primary" onclick="openLeiModal()">+ Novo Caderno</button>
+    <button class="btn btn-secondary" onclick="toggleLeiStats()">📊 Estatísticas</button>
+    <div class="divider" style="height: 24px; width: 1.5px; margin: 0 10px; background: var(--border);"></div>
+    <div id="leis-selector" class="toggle-group"></div>
   </div>
 
-  <div id="leis-container" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 20px;">
+  <div id="lei-stats-panel" style="display:none; margin-bottom: 24px;"></div>
+
+  <div id="leis-container">
     </div>
 </section>
 </main>
@@ -446,7 +456,7 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
 
     <div class="modal-actions">
       <button class="btn btn-secondary" onclick="closeLeiModal()">Cancelar</button>
-      <button class="btn btn-primary" onclick="criarCadernoLei()">Criar Caderno</button>
+      <button class="btn btn-primary" id="btn-save-lei" onclick="criarCadernoLei()">Criar Caderno</button>
     </div>
   </div>
 </div>
@@ -2056,9 +2066,32 @@ function anRenderPeriodSummary(pts) {
 // ══════════════════════════════════════════════════
 //  MOTOR DE LEI SECA
 // ══════════════════════════════════════════════════
-function openLeiModal() {
+let currentSelectedLeiId = null;
+let editingLeiId = null;
+
+function openLeiModal(leiId = null) {
   const sel = document.getElementById('lei-materia-select');
   sel.innerHTML = state.materias.map(m => `<option value="${m.name}">${m.name}</option>`).join('');
+  
+  const btnSave = document.getElementById('btn-save-lei');
+  const title = document.querySelector('#lei-modal .modal-title');
+
+  if (leiId) {
+    editingLeiId = leiId;
+    const lei = state.leis.find(l => l.id === leiId);
+    document.getElementById('lei-nome').value = lei.nome;
+    document.getElementById('lei-materia-select').value = lei.materia;
+    document.getElementById('lei-blocos').value = lei.blocos.map(b => b.texto).join('\n');
+    title.textContent = "Editar Caderno";
+    btnSave.textContent = "Salvar Alterações";
+  } else {
+    editingLeiId = null;
+    document.getElementById('lei-nome').value = '';
+    document.getElementById('lei-blocos').value = '';
+    title.textContent = "Novo Caderno de Lei";
+    btnSave.textContent = "Criar Caderno";
+  }
+  
   document.getElementById('lei-modal').classList.add('open');
 }
 
@@ -2068,27 +2101,31 @@ async function criarCadernoLei() {
   const nome = document.getElementById('lei-nome').value.trim();
   const materia = document.getElementById('lei-materia-select').value;
   const blocosTexto = document.getElementById('lei-blocos').value.trim();
-  
-  if (!nome || !blocosTexto) { showToast("Preencha o nome e os blocos."); return; }
+  if (!nome || !blocosTexto) { showToast("Preencha tudo!"); return; }
 
-  const novosBlocos = blocosTexto.split('\n').map(b => ({ texto: b.trim(), done: false })).filter(b => b.texto);
-  
-  const novaLei = {
-    id: crypto.randomUUID(),
-    nome,
-    materia,
-    ciclo: 1,
-    blocos: novosBlocos
-  };
+  const linhas = blocosTexto.split('\n').filter(l => l.trim());
 
-  state.leis.push(novaLei);
+  if (editingLeiId) {
+    const lei = state.leis.find(l => l.id === editingLeiId);
+    lei.nome = nome;
+    lei.materia = materia;
+    
+    lei.blocos = linhas.map(texto => {
+      const bOld = lei.blocos.find(o => o.texto === texto.trim());
+      return bOld ? bOld : { texto: texto.trim(), done: false, disabled: false };
+    });
+  } else {
+    state.leis.push({
+      id: crypto.randomUUID(),
+      nome, materia, ciclo: 1,
+      blocos: linhas.map(l => ({ texto: l.trim(), done: false, disabled: false }))
+    });
+  }
+
   await saveLeisDB();
-  renderLeis();
   closeLeiModal();
-  showToast("Caderno de Lei criado!");
-  
-  document.getElementById('lei-nome').value = '';
-  document.getElementById('lei-blocos').value = '';
+  renderLeis();
+  showToast(editingLeiId ? "Caderno atualizado!" : "Caderno criado!");
 }
 
 async function saveLeisDB() {
@@ -2097,48 +2134,85 @@ async function saveLeisDB() {
 
 function renderLeis() {
   const container = document.getElementById('leis-container');
+  const selector = document.getElementById('leis-selector');
+  
   if (!state.leis.length) {
-    container.innerHTML = `<div class="empty" style="grid-column: 1/-1;"><div class="ico">📖</div><p>Nenhum caderno de lei seca.<br>Crie o primeiro para começar o ciclo!</p></div>`;
+    selector.innerHTML = '';
+    container.innerHTML = `<div class="empty"><div class="ico">📖</div><p>Crie seu primeiro caderno.</p></div>`;
     return;
   }
 
-  container.innerHTML = state.leis.map((lei, lIdx) => {
-    const concluídos = lei.blocos.filter(b => b.done).length;
-    const total = lei.blocos.length;
-    const perc = Math.round((concluídos / total) * 100);
-    const todosLidos = concluídos === total;
+  selector.innerHTML = state.leis.map(lei => `
+    <div class="toggle-pill ${currentSelectedLeiId === lei.id ? 'active' : ''}" 
+         onclick="selectLei('${lei.id}')">${escHtml(lei.nome)}</div>
+  `).join('');
 
-    return `
-      <div class="lei-card">
-        <div class="lei-header">
-          <div>
-            <span class="lei-tag">${escHtml(lei.materia)}</span>
-            <div style="font-family:'DM Serif Display',serif; font-size:18px; margin-top:5px;">${escHtml(lei.nome)}</div>
-          </div>
+  if (!currentSelectedLeiId) {
+    container.innerHTML = `<div class="empty"><p>Escolha um caderno acima para estudar.</p></div>`;
+    return;
+  }
+
+  const lei = state.leis.find(l => l.id === currentSelectedLeiId);
+  const lIdx = state.leis.indexOf(lei);
+  
+  const blocosAtivos = lei.blocos.filter(b => !b.disabled);
+  const concluídos = blocosAtivos.filter(b => b.done).length;
+  const total = blocosAtivos.length;
+  const perc = total > 0 ? Math.round((concluídos / total) * 100) : 0;
+
+  container.innerHTML = `
+    <div class="lei-card" style="max-width: 600px; margin: 0 auto;">
+      <div class="lei-header">
+        <div>
+          <span class="lei-tag">${escHtml(lei.materia)}</span>
+          <div style="font-family:'DM Serif Display',serif; font-size:24px; margin-top:5px;">${escHtml(lei.nome)}</div>
+        </div>
+        <div style="text-align: right;">
           <div class="lei-ciclo-badge">Ciclo ${lei.ciclo}</div>
+          <button class="btn-ghost" style="font-size:12px; margin-top:10px; color:var(--accent);" onclick="openLeiModal('${lei.id}')">✏️ Editar</button>
         </div>
-        
-        <div class="lei-progress-bar"><div class="lei-progress-fill" style="width: ${perc}%"></div></div>
-        <div style="font-size:11px; color:var(--text2); margin-bottom:15px;">${perc}% concluído (${concluídos} de ${total} blocos)</div>
-
-        <div class="lei-checklist">
-          ${lei.blocos.map((b, bIdx) => `
-            <div class="lei-item ${b.done ? 'done' : ''}" onclick="toggleLeiCheck(${lIdx}, ${bIdx})">
-              <input type="checkbox" ${b.done ? 'checked' : ''}>
-              <span>${escHtml(b.texto)}</span>
-            </div>
-          `).join('')}
-        </div>
-
-        ${todosLidos ? 
-          `<button class="btn btn-accent2" style="margin-top:20px; width:100%; justify-content:center;" onclick="resetCiclo(${lIdx})">↺ Reiniciar Ciclo (Ir p/ Ciclo ${lei.ciclo + 1})</button>` : 
-          `<button class="btn-ghost" style="margin-top:20px; font-size:11px; border:none; color:var(--danger);" onclick="deleteLei(${lIdx})">Remover Caderno</button>`
-        }
       </div>
-    `;
-  }).join('');
+      
+      <div class="lei-progress-bar"><div class="lei-progress-fill" style="width: ${perc}%"></div></div>
+      <div style="font-size:12px; color:var(--text2); margin-bottom:15px; font-weight:600;">
+        ${perc}% concluído (${concluídos} de ${total} metas ativas)
+      </div>
+
+      <div class="lei-checklist">
+        ${lei.blocos.map((b, bIdx) => `
+          <div class="lei-item ${b.done ? 'done' : ''} ${b.disabled ? 'item-disabled' : ''}" 
+               onclick="${b.disabled ? '' : `toggleLeiCheck(${lIdx}, ${bIdx})`}">
+            <input type="checkbox" ${b.done ? 'checked' : ''} ${b.disabled ? 'disabled' : ''}>
+            <span>${escHtml(b.texto)}</span>
+            <div class="lei-item-actions">
+               <button class="btn-toggle-item" onclick="event.stopPropagation(); toggleLeiItemDisabled(${lIdx}, ${bIdx})" title="Habilitar/Desabilitar">
+                 ${b.disabled ? '👁️' : '🚫'}
+               </button>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+
+      <div style="display:flex; gap:10px; margin-top:25px;">
+        <button class="btn btn-accent2" style="flex:1; justify-content:center;" onclick="resetCiclo(${lIdx})">↺ Reiniciar Ciclo</button>
+        <button class="btn-ghost" style="color:var(--danger); border:none;" onclick="deleteLei(${lIdx})">Excluir</button>
+      </div>
+    </div>
+  `;
 }
 
+function selectLei(id) {
+  currentSelectedLeiId = id;
+  renderLeis();
+}
+
+async function toggleLeiItemDisabled(lIdx, bIdx) {
+  const item = state.leis[lIdx].blocos[bIdx];
+  item.disabled = !item.disabled;
+  if (item.disabled) item.done = false; 
+  await saveLeisDB();
+  renderLeis();
+}
 async function toggleLeiCheck(lIdx, bIdx) {
   state.leis[lIdx].blocos[bIdx].done = !state.leis[lIdx].blocos[bIdx].done;
   await saveLeisDB();
@@ -2157,9 +2231,68 @@ async function resetCiclo(lIdx) {
 async function deleteLei(lIdx) {
   if (!confirm("Deseja apagar este caderno de lei permanentemente?")) return;
   state.leis.splice(lIdx, 1);
+  currentSelectedLeiId = null; // Limpa a memória para não dar erro na tela
   await saveLeisDB();
   renderLeis();
 }
+
+function toggleLeiStats() {
+  const panel = document.getElementById('lei-stats-panel');
+  if (panel.style.display === 'none') {
+    renderLeiStats();
+    panel.style.display = 'block';
+  } else {
+    panel.style.display = 'none';
+  }
+}
+
+function renderLeiStats() {
+  const panel = document.getElementById('lei-stats-panel');
+  if (!state.leis.length) {
+    panel.innerHTML = '<div class="card"><p style="color:var(--text3); font-size:13px;">Nenhum dado para analisar ainda.</p></div>';
+    return;
+  }
+
+  // Agrupa a matemática por Matéria (Com blindagem contra erros)
+  const stats = {};
+  state.leis.forEach(lei => {
+    // BLINDAGEM: Se a matéria for vazia ou nula, coloca numa categoria padrão
+    const matName = lei.materia ? lei.materia : "Geral (Sem Matéria)"; 
+
+    if (!stats[matName]) stats[matName] = { blocosLidos: 0, ciclosFechados: 0, cadernos: 0 };
+    
+    const blocosAtivos = lei.blocos.filter(b => !b.disabled);
+    const totalBlocos = blocosAtivos.length;
+    const lidosAgora = blocosAtivos.filter(b => b.done).length;
+    
+    // A mágica: (Ciclos anteriores * Total de Blocos) + Blocos lidos no ciclo atual
+    const historicoBlocos = ((lei.ciclo - 1) * totalBlocos) + lidosAgora;
+    
+    stats[matName].blocosLidos += historicoBlocos;
+    stats[matName].ciclosFechados += (lei.ciclo - 1);
+    stats[matName].cadernos += 1;
+  });
+
+  // Desenha os cartões blindados com escHtml corrigido
+  const html = Object.entries(stats).map(([mat, s]) => `
+    <div class="stat-card" style="padding: 16px;">
+      <div class="stat-label">${escHtml(mat)}</div>
+      <div style="display:flex; gap:20px; margin-top:10px;">
+        <div>
+          <div style="font-size:11px; color:var(--text3);">Ciclos Concluídos</div>
+          <div style="font-family:'DM Mono',monospace; font-size:20px; font-weight:500; color:var(--accent);">${s.ciclosFechados}</div>
+        </div>
+        <div>
+          <div style="font-size:11px; color:var(--text3);">Blocos Lidos (Histórico)</div>
+          <div style="font-family:'DM Mono',monospace; font-size:20px; font-weight:500; color:var(--text);">${s.blocosLidos}</div>
+        </div>
+      </div>
+    </div>
+  `).join('');
+
+  panel.innerHTML = `<div class="grid-3">${html}</div>`;
+}
+  
 // 12. SUBSCRIBE REATIVIDADE NO FINAL
 subscribe(renderDashboard);
 subscribe(renderMaterias);
