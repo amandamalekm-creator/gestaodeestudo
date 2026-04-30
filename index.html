@@ -2976,31 +2976,31 @@ function renderRevisao() {
 } // <--- ESSA CHAVE FECHA A FUNÇÃO renderRevisao
 
 async function toggleRevContent(mIdx, ctIdx) {
-  // Acessa a lista de conteúdos da matéria selecionada
   const conteudos = state.materias[mIdx].conteudos;
-  
   if (!conteudos || !conteudos[ctIdx]) return;
 
-  // Se o objeto for apenas uma string (legado), transforma em objeto para aceitar a propriedade hidden
+  // Se for string, transforma em objeto preservando o nome como ID original
   if (typeof conteudos[ctIdx] === 'string') {
-    conteudos[ctIdx] = { name: conteudos[ctIdx], id: crypto.randomUUID() };
+    const nomeOriginal = conteudos[ctIdx];
+    conteudos[ctIdx] = { 
+      name: nomeOriginal, 
+      id: nomeOriginal, // Usa o nome como ID para manter o vínculo com as horas
+      hidden: false 
+    };
   }
 
-  // Se a propriedade hidden não existir, inicializa como false
-  if (conteudos[ctIdx].hidden === undefined) {
-    conteudos[ctIdx].hidden = false;
+  // Se for objeto mas não tiver ID, usa o nome como ID
+  if (!conteudos[ctIdx].id) {
+    conteudos[ctIdx].id = conteudos[ctIdx].name;
   }
 
-  // Inverte o estado
+  // Inverte o estado oculto
   conteudos[ctIdx].hidden = !conteudos[ctIdx].hidden;
   
-  // Salva no Firebase
   await saveMateriasDB();
-  
-  // Atualiza a tela imediatamente
   renderRevisao();
   
-  showToast(conteudos[ctIdx].hidden ? "Tópico ocultado do edital." : "Tópico reativado.");
+  showToast(conteudos[ctIdx].hidden ? "Tópico ocultado." : "Tópico reativado.");
 }
   
 function setRevMateria(idx) {
