@@ -823,7 +823,8 @@ function updateAggregates(session){
   state.aggregates.materias[materia].totalTime += duration;
 
   conteudos.forEach(ct=>{
-    const id = ct.id || ct.name;
+    // VÍNCULO SEGURO: Aceita o nome como ID para não perder dados antigos
+    const id = ct.id || ct.name || ct; 
 
     if(!state.aggregates.conteudos[id]){
       state.aggregates.conteudos[id]={ totalTime:0,totalQs:0,correctQs:0,last5:[],lastStudied:null };
@@ -835,9 +836,8 @@ function updateAggregates(session){
     if(!ct.onlyTheory){
       agg.totalQs += ct.total||0;
       agg.correctQs += ct.correct||0;
-      // ---> ADICIONE ESTAS DUAS LINHAS PARA A MATÉRIA TAMBÉM RECEBER AS QUESTÕES <---
-          state.aggregates.materias[materia].totalQs += ct.total||0;
-          state.aggregates.materias[materia].correctQs += ct.correct||0;
+      state.aggregates.materias[materia].totalQs += ct.total||0;
+      state.aggregates.materias[materia].correctQs += ct.correct||0;
     }
 
     agg.lastStudied = date;
@@ -2935,23 +2935,19 @@ function renderRevisao() {
     const agg = state.aggregates.conteudos[ctId];
     const isHidden = ct.hidden || false;
     
-    let badgeClass = 'rb-fazer', badgeValue = '0%', dotColor = '#9E9890', lastDate = '—';
+   let badgeClass = 'rb-fazer', badgeValue = 'Fazer', dotColor = '#9E9890', lastDate = '—';
 
     if (agg) {
        if (agg.totalQs > 0) {
          const perc = Math.round((agg.correctQs / agg.totalQs) * 100);
-         badgeValue = perc + '%'; // <--- AGORA MOSTRA O NÚMERO
+         badgeValue = perc + '%'; // Aqui ele passa a mostrar o número
          if (perc >= 80) { badgeClass = 'rb-bom'; dotColor = '#27AE60'; }
          else if (perc >= 60) { badgeClass = 'rb-medio'; dotColor = '#D4842A'; }
          else { badgeClass = 'rb-ruim'; dotColor = '#C0392B'; }
        } else if (agg.totalTime > 0) {
          badgeClass = 'rb-teoria'; badgeValue = 'Teoria'; dotColor = 'var(--accent)';
-       } else {
-         badgeValue = 'Fazer';
        }
        if (agg.lastStudied) lastDate = new Date(agg.lastStudied).toLocaleDateString('pt-BR');
-    } else {
-      badgeValue = 'Fazer';
     }
 
     return `
@@ -2979,30 +2975,23 @@ async function toggleRevContent(mIdx, ctIdx) {
   const conteudos = state.materias[mIdx].conteudos;
   if (!conteudos || !conteudos[ctIdx]) return;
 
-  // Se for string, transforma em objeto preservando o nome como ID original
+  // Converte string para objeto se necessário, mantendo o nome como ID
   if (typeof conteudos[ctIdx] === 'string') {
-    const nomeOriginal = conteudos[ctIdx];
-    conteudos[ctIdx] = { 
-      name: nomeOriginal, 
-      id: nomeOriginal, // Usa o nome como ID para manter o vínculo com as horas
-      hidden: false 
-    };
+    const nome = conteudos[ctIdx];
+    conteudos[ctIdx] = { name: nome, id: nome, hidden: false };
   }
-
-  // Se for objeto mas não tiver ID, usa o nome como ID
+  
   if (!conteudos[ctIdx].id) {
     conteudos[ctIdx].id = conteudos[ctIdx].name;
   }
 
-  // Inverte o estado oculto
   conteudos[ctIdx].hidden = !conteudos[ctIdx].hidden;
   
   await saveMateriasDB();
   renderRevisao();
-  
   showToast(conteudos[ctIdx].hidden ? "Tópico ocultado." : "Tópico reativado.");
 }
-  
+
 function setRevMateria(idx) {
   revCurrentMateriaIndex = idx;
   renderRevisao();
