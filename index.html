@@ -320,6 +320,7 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
           <button class="btn btn-white" id="btn-play" onclick="startTimer()">▶ Iniciar</button>
           <button class="btn btn-outline-white" id="btn-pause" onclick="pauseTimer()" disabled>⏸ Pausar</button>
           <button class="btn btn-outline-white" id="btn-finish" onclick="openFinishModal()" disabled style="background:rgba(255,255,255,.12);color:rgba(255,255,255,.8);border-color:rgba(255,255,255,.25);">■ Finalizar</button>
+          <button class="btn btn-outline-white" id="btn-pip" onclick="openPiP()" disabled style="background:rgba(0,0,0,.2); color:white; border-color:rgba(255,255,255,.3);">🪟 Mini-Painel</button>
         </div>
       </div>
     </div>
@@ -452,7 +453,18 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
   <div class="modal">
     <div class="modal-title">Registrar Sessão</div>
     <div class="modal-sub">Informe os conteúdos estudados e questões por conteúdo.</div>
-    <div class="modal-time"><div class="modal-time-label">⏱ Tempo da sessão</div><div class="modal-time-val" id="modal-time-display">00:00:00</div></div>
+    <div class="modal-time" style="flex-direction:column; align-items:stretch; gap:12px;">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <div class="modal-time-label">⏱ Tempo da sessão</div>
+        <button class="btn btn-ghost btn-sm" onclick="toggleEditModalTime()" id="btn-toggle-time" style="border:none; padding:4px 8px; background:var(--surface); box-shadow:var(--shadow);">✏️ Editar</button>
+      </div>
+      <div class="modal-time-val" id="modal-time-display" style="text-align:right;">00:00:00</div>
+      <div id="modal-time-inputs" class="grid-3" style="display:none; gap:8px;">
+        <div><input type="number" id="modal-h" min="0" placeholder="0" style="text-align:center;"><div class="form-hint">Horas</div></div>
+        <div><input type="number" id="modal-m" min="0" max="59" placeholder="0" style="text-align:center;"><div class="form-hint">Minutos</div></div>
+        <div><input type="number" id="modal-s" min="0" max="59" placeholder="0" style="text-align:center;"><div class="form-hint">Segundos</div></div>
+      </div>
+    </div>
     <div class="form-group"><label class="form-label">Matéria</label><input type="text" id="modal-materia-label" readonly></div>
     <div class="section-label">Conteúdos estudados</div>
     <div id="modal-ct-list" class="session-conteudo-list" style="margin-bottom:10px;"></div>
@@ -526,6 +538,7 @@ function notify(){ listeners.forEach(fn=>fn()); }
 let timerInterval = null, timerSeconds = 0, timerRunning = false, timerPaused = false;
 let currentMateria = null, sessionStart = null, timerStartedAt = null, timerBaseSeconds = 0;
 let modalConteudos = [], manualConteudos = [];
+let pipWindow = null, liveSessionData = {};
 
 // ══════════════════════════════════════════════════
 //  SISTEMA DE AUTENTICAÇÃO
@@ -1003,6 +1016,8 @@ function startTimer() {
   document.getElementById('btn-play').disabled=true;
   document.getElementById('btn-pause').disabled=false;
   document.getElementById('btn-finish').disabled=false;
+  document.getElementById('btn-pip').disabled=false; // LIGA O MINI-PAINEL
+  if(!timerPaused) liveSessionData = {}; // ZERA A MEMÓRIA SE FOR NOVA SESSÃO
   setFinishActive();
   document.getElementById('session-live').style.display='block';
   document.getElementById('session-start-label').textContent=sessionStart.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
@@ -1017,6 +1032,9 @@ function setFinishActive() {
 function tickTimer() {
   timerSeconds=timerBaseSeconds+Math.floor((Date.now()-timerStartedAt)/1000);
   document.getElementById('timer-display').textContent=formatTime(timerSeconds);
+  if (pipWindow && pipWindow.document.getElementById('pip-timer')) {
+    pipWindow.document.getElementById('pip-timer').textContent=formatTime(timerSeconds);
+  }
 }
 
 function pauseTimer() {
@@ -1030,11 +1048,59 @@ function pauseTimer() {
   document.getElementById('btn-pause').disabled=true;
 }
 
+function toggleEditModalTime() {
+  const disp = document.getElementById('modal-time-display');
+  const inputs = document.getElementById('modal-time-inputs');
+  const btn = document.getElementById('btn-toggle-time');
+  
+  if (disp.style.display === 'none') {
+    // Quando clicar em Confirmar: Pega o tempo das caixas, converte e atualiza o texto principal
+    const h = parseInt(document.getElementById('modal-h').value) || 0;
+    const m = parseInt(document.getElementById('modal-m').value) || 0;
+    const s = parseInt(document.getElementById('modal-s').value) || 0;
+    disp.textContent = formatTime((h * 3600) + (m * 60) + s);
+    
+    disp.style.display = 'block';
+    inputs.style.display = 'none';
+    btn.innerHTML = '✏️ Editar';
+  } else {
+    // Quando clicar em Editar: Esconde o texto e mostra as caixas
+    disp.style.display = 'none';
+    inputs.style.display = 'grid'; 
+    btn.innerHTML = '✓ Confirmar';
+  }
+}
+  
 function openFinishModal() {
   if (!timerRunning && !timerPaused) return;
   clearInterval(timerInterval); timerRunning=false;
-  modalConteudos=[];
-  document.getElementById('modal-time-display').textContent=formatTime(timerSeconds);
+  
+  // AUTOPREENCHIMENTO: Puxa os dados digitados no Mini-Painel
+  modalConteudos = [];
+  const mat = getMateriaObj(currentMateria);
+  
+  for (const [ctName, data] of Object.entries(liveSessionData)) {
+    if (data.total > 0 || data.correct > 0) {
+      let origId = null;
+      if (mat && mat.conteudos) {
+        const orig = mat.conteudos.find(c => (c.name || c) === ctName);
+        if (orig && orig.id) origId = orig.id;
+      }
+      modalConteudos.push({ id: origId, name: ctName, total: data.total, correct: data.correct, onlyTheory: false });
+    }
+  }
+
+  // Prepara as caixinhas de edição com o tempo atual do cronômetro
+  document.getElementById('modal-time-display').textContent = formatTime(timerSeconds);
+  document.getElementById('modal-h').value = Math.floor(timerSeconds / 3600);
+  document.getElementById('modal-m').value = Math.floor((timerSeconds % 3600) / 60);
+  document.getElementById('modal-s').value = timerSeconds % 60;
+  
+  // Reseta o visual para as caixinhas estarem fechadas por padrão
+  document.getElementById('modal-time-display').style.display = 'block';
+  document.getElementById('modal-time-inputs').style.display = 'none';
+  document.getElementById('btn-toggle-time').innerHTML = '✏️ Editar';
+
   document.getElementById('modal-materia-label').value=currentMateria;
   populateModalCtSelect();
   renderModalCtList();
@@ -1155,11 +1221,17 @@ async function saveSession() {
     if (!ct.onlyTheory && ct.correct>ct.total) { showToast(`"${ct.name}": acertos não podem ser maiores que o total.`); return; }
   }
 
+  // Captura o tempo modificado diretamente das caixas de edição do Modal
+  const editH = parseInt(document.getElementById('modal-h').value) || 0;
+  const editM = parseInt(document.getElementById('modal-m').value) || 0;
+  const editS = parseInt(document.getElementById('modal-s').value) || 0;
+  const finalDuration = (editH * 3600) + (editM * 60) + editS;
+
   const novaSessao = {
     id: crypto.randomUUID(),
     date: new Date().toISOString(),
     materia: currentMateria,
-    duration: timerSeconds,
+    duration: finalDuration, // Usa o tempo ajustado!
     manual: false,
     obs: '',
     conteudos: modalConteudos.map(c=>({...c}))
@@ -1199,10 +1271,130 @@ function resetTimerUI() {
   document.getElementById('btn-play').textContent='▶ Iniciar';
   document.getElementById('btn-pause').disabled=true;
   document.getElementById('btn-finish').disabled=true;
+  document.getElementById('btn-pip').disabled=true;
   document.getElementById('btn-finish').style.cssText='background:rgba(255,255,255,.12);color:rgba(255,255,255,.8);border-color:rgba(255,255,255,.25);';
   document.getElementById('session-live').style.display='none';
 }
 
+// ══════════════════════════════════════════════════
+//  MINI-PAINEL FLUTUANTE (DOCUMENT PIP)
+// ══════════════════════════════════════════════════
+async function openPiP() {
+  if (!('documentPictureInPicture' in window)) {
+    showToast("⚠️ Seu navegador não suporta a janela flutuante (Use o Google Chrome ou Edge no PC).");
+    return;
+  }
+  if (pipWindow) return; // Se já estiver aberto, ignora
+
+  try {
+    pipWindow = await window.documentPictureInPicture.requestWindow({ width: 340, height: 380 });
+    
+    // Injetar Fontes
+    const fontLink = document.createElement('link');
+    fontLink.href = 'https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@500&display=swap';
+    fontLink.rel = 'stylesheet';
+    pipWindow.document.head.appendChild(fontLink);
+
+    // Desenhar a Interface do Mini-Painel
+    pipWindow.document.body.innerHTML = `
+      <div style="font-family:'DM Sans',sans-serif; background:#F5F3EE; height:100vh; padding:20px; color:#1A1714; box-sizing:border-box;">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:15px;">
+           <div>
+             <div style="font-size:11px; font-weight:600; color:#6B6560; text-transform:uppercase; letter-spacing:0.5px;">Sessão Ativa</div>
+             <div style="font-size:16px; font-weight:600; color:#2D5A3D;" id="pip-materia">${currentMateria}</div>
+           </div>
+           <div style="font-family:'DM Mono',monospace; font-size:26px; font-weight:500; color:#1A1714; background:#FFF; padding:4px 10px; border-radius:8px; border:1px solid #E2DDD4;" id="pip-timer">${formatTime(timerSeconds)}</div>
+        </div>
+
+        <div style="background:#FFF; padding:16px; border-radius:12px; border:1px solid #E2DDD4; box-shadow:0 4px 16px rgba(0,0,0,.04);">
+          <label style="font-size:12px; font-weight:600; color:#6B6560; display:block; margin-bottom:6px;">Qual conteúdo está a resolver?</label>
+          <select id="pip-conteudo" style="width:100%; padding:10px; border-radius:6px; border:1px solid #E2DDD4; background:#F0EDE6; font-family:'DM Sans',sans-serif; font-size:13px; outline:none; margin-bottom:20px; cursor:pointer;"></select>
+
+          <div style="display:flex; gap:12px; margin-bottom:20px;">
+            <div style="flex:1; text-align:center; background:#FDF3E7; border:1.5px solid rgba(200,135,58,.2); padding:12px 10px; border-radius:8px;">
+               <div style="font-size:11px; font-weight:600; color:#D4842A; text-transform:uppercase;">Questões</div>
+               <div id="pip-total" style="font-family:'DM Mono',monospace; font-size:28px; font-weight:500; color:#C8873A;">0</div>
+               <button id="pip-btn-erro" style="width:100%; margin-top:8px; background:#FFF; color:#C0392B; border:1px solid rgba(192,57,43,.3); padding:6px; border-radius:6px; font-size:12px; font-weight:600; cursor:pointer;">❌ Errei</button>
+            </div>
+            <div style="flex:1; text-align:center; background:#E8F2EB; border:1.5px solid rgba(45,90,61,.2); padding:12px 10px; border-radius:8px;">
+               <div style="font-size:11px; font-weight:600; color:#2D5A3D; text-transform:uppercase;">Acertos</div>
+               <div id="pip-correct" style="font-family:'DM Mono',monospace; font-size:28px; font-weight:500; color:#27AE60;">0</div>
+               <button id="pip-btn-correct" style="width:100%; margin-top:8px; background:#FFF; color:#27AE60; border:1px solid rgba(39,174,96,.3); padding:6px; border-radius:6px; font-size:12px; font-weight:600; cursor:pointer;">✅ Acertei</button>
+            </div>
+          </div>
+        </div>
+
+        <button id="pip-btn-finish" style="width:100%; padding:14px; background:#2D5A3D; color:#FFF; border:none; border-radius:8px; font-family:'DM Sans',sans-serif; font-size:14px; font-weight:600; cursor:pointer; margin-top:15px; box-shadow:0 4px 16px rgba(45,90,61,.3);">⏹ Finalizar no Aprovado</button>
+      </div>
+    `;
+    pipWindow.document.body.style.margin = "0";
+
+    // Puxar conteúdos para o Dropdown
+    const sel = pipWindow.document.getElementById('pip-conteudo');
+    const mat = getMateriaObj(currentMateria);
+    let optionsHtml = '<option value="">— Selecione um conteúdo —</option>';
+    if (mat && mat.conteudos) {
+      mat.conteudos.forEach(c => {
+        const cName = c.name || c;
+        optionsHtml += `<option value="${cName}">${cName}</option>`;
+      });
+    }
+    sel.innerHTML = optionsHtml;
+
+    // Atualizar números na tela do PiP
+    function updatePiPCounters() {
+      const ct = sel.value;
+      const btnOk = pipWindow.document.getElementById('pip-btn-correct');
+      const btnEr = pipWindow.document.getElementById('pip-btn-erro');
+      
+      if (!ct) {
+        pipWindow.document.getElementById('pip-correct').textContent = "-";
+        pipWindow.document.getElementById('pip-total').textContent = "-";
+        btnOk.disabled = true; btnOk.style.opacity = 0.4;
+        btnEr.disabled = true; btnEr.style.opacity = 0.4;
+        return;
+      }
+      btnOk.disabled = false; btnOk.style.opacity = 1;
+      btnEr.disabled = false; btnEr.style.opacity = 1;
+
+      if (!liveSessionData[ct]) { liveSessionData[ct] = { total: 0, correct: 0 }; }
+      pipWindow.document.getElementById('pip-correct').textContent = liveSessionData[ct].correct;
+      pipWindow.document.getElementById('pip-total').textContent = liveSessionData[ct].total;
+    }
+
+    sel.addEventListener('change', updatePiPCounters);
+    updatePiPCounters();
+
+    // Ações de Clique
+    pipWindow.document.getElementById('pip-btn-correct').addEventListener('click', () => {
+      const ct = sel.value; if(!ct) return;
+      liveSessionData[ct].total++;
+      liveSessionData[ct].correct++;
+      updatePiPCounters();
+    });
+
+    pipWindow.document.getElementById('pip-btn-erro').addEventListener('click', () => {
+      const ct = sel.value; if(!ct) return;
+      liveSessionData[ct].total++;
+      updatePiPCounters();
+    });
+
+    // Quando clicar em Finalizar no Mini-Painel
+    pipWindow.document.getElementById('pip-btn-finish').addEventListener('click', () => {
+      pipWindow.close(); // Fecha o quadradinho
+      openFinishModal(); // Abre o modal na janela principal (já preenchido!)
+      window.focus(); // Traz a aba do Aprovado para a frente
+    });
+
+    // Limpar variável se o usuário fechar no "X"
+    pipWindow.addEventListener("pagehide", () => { pipWindow = null; });
+
+  } catch (error) {
+    console.error("Erro no PIP:", error);
+    showToast("A janela flutuante falhou. Verifique as permissões do seu navegador.");
+  }
+}
+  
 // ══════════════════════════════════════════════════
 //  LANÇAMENTO MANUAL
 // ══════════════════════════════════════════════════
