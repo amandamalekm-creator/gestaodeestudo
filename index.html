@@ -248,10 +248,16 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
 .lei-item:hover { background: var(--border); }
 .lei-item.done { opacity: 0.5; text-decoration: line-through; background: none; border: 1px solid var(--border); }
 .lei-item input { pointer-events: none; }
-.lei-item.item-disabled { background: var(--surface2); border: 1px dashed var(--border); }
-.lei-item.item-disabled input, .lei-item.item-disabled span { opacity: 0.3; filter: grayscale(1); }
-.lei-item.item-disabled span { text-decoration: none !important; color: var(--text3); }
-.lei-item.item-disabled .btn-toggle-item { opacity: 1; font-size: 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px; box-shadow: var(--shadow); }
+.lei-item.item-disabled { opacity: 0.6; background: var(--surface2); border: 1px dashed var(--border); }
+.lei-item.item-disabled span { text-decoration: line-through !important; color: var(--text2); }
+.lei-item.item-disabled .btn-toggle-item { opacity: 1 !important; font-size: 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px; box-shadow: var(--shadow); }
+
+/* --- Mágica das Colunas Verticais --- */
+.lei-masonry { column-count: 3; column-gap: 24px; column-rule: 2px solid var(--accent-light); margin-top: 15px; }
+.lei-masonry .lei-item { break-inside: avoid; page-break-inside: avoid; margin-bottom: 12px; display: inline-flex; width: 100%; box-sizing: border-box; }
+@media (min-width: 1400px) { .lei-masonry { column-count: 4; } }
+@media (max-width: 1100px) { .lei-masonry { column-count: 2; } }
+@media (max-width: 768px) { .lei-masonry { column-count: 1; } }
 .lei-item-actions { margin-left: auto; display: flex; gap: 8px; }
 .btn-toggle-item { background: none; border: none; cursor: pointer; font-size: 14px; opacity: 0.5; transition: 0.2s; }
 .btn-toggle-item:hover { opacity: 1; }
@@ -2239,10 +2245,10 @@ function renderLeis() {
         Neste caderno: <strong style="color:var(--text);">${(lei.historico || []).filter(d => new Date(d) >= inicioSemana).length} blocos lidos nesta semana</strong>
       </div>
 
-     <div class="lei-checklist" style="column-width: 320px; column-gap: 16px; margin-top: 15px;">
+     <div class="lei-checklist lei-masonry">
         ${lei.blocos.map((b, bIdx) => `
           <div class="lei-item ${b.done ? 'done' : ''} ${b.disabled ? 'item-disabled' : ''} ${b.importante ? 'is-important' : ''}" 
-               onclick="${b.disabled ? '' : `toggleLeiCheck(${lIdx}, ${bIdx})`}" style="break-inside: avoid; page-break-inside: avoid; margin-bottom: 12px;">
+               onclick="${b.disabled ? '' : `toggleLeiCheck(${lIdx}, ${bIdx})`}">
             <input type="checkbox" ${b.done ? 'checked' : ''} ${b.disabled ? 'disabled' : ''}>
             <span style="${b.importante && !b.done && !b.disabled ? 'color: var(--danger); font-weight: 500;' : ''}">${b.importante ? '🔥 ' : ''}${escHtml(b.texto)}</span>
             <div class="lei-item-actions">
