@@ -2931,7 +2931,7 @@ function renderRevisao() {
   // 2. Renderiza os tópicos (respeitando a ordem fixa do edital)
   listEl.innerHTML = conteudos.map((ct, ctIdx) => {
     const ctName = ct.name || ct;
-    const ctId = ct.id || ctName;
+    const ctId = ct.name || ct.id || ct;;
     const agg = state.aggregates.conteudos[ctId];
     const isHidden = ct.hidden || false;
     
