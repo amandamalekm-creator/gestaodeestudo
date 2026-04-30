@@ -253,7 +253,11 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
 .lei-item.item-disabled .btn-toggle-item { opacity: 1 !important; font-size: 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px; box-shadow: var(--shadow); }
 
 /* --- Mágica das Colunas Verticais --- */
-.lei-masonry { display: block !important; column-count: 3; column-gap: 24px; column-rule: 2px solid var(--accent-light); margin-top: 15px; }
+.lei-masonry { display: block !important; column-count: 3; column-gap: 24px; column-rule: 1.5px solid rgba(45, 90, 61, 0.25); margin-top: 15px; }
+.lei-masonry .lei-item { break-inside: avoid-column; page-break-inside: avoid; margin-bottom: 12px; display: inline-flex; width: 100%; box-sizing: border-box; }
+@media (min-width: 1400px) { .lei-masonry { column-count: 4; } }
+@media (max-width: 1100px) { .lei-masonry { column-count: 2; } }
+@media (max-width: 768px) { .lei-masonry { column-count: 1; column-rule: none; } }
 .lei-masonry .lei-item { break-inside: avoid-column; page-break-inside: avoid; margin-bottom: 12px; display: inline-flex; width: 100%; box-sizing: border-box; }
 @media (min-width: 1400px) { .lei-masonry { column-count: 4; } }
 @media (max-width: 1100px) { .lei-masonry { column-count: 2; } }
