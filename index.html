@@ -853,29 +853,6 @@ function removeSessionFromAggregates(session){
     }
   });
 }
-  
-  if (state.aggregates.materias[materia]){
-    state.aggregates.materias[materia].totalTime = Math.max(0, state.aggregates.materias[materia].totalTime - duration);
-  }
-  
-  conteudos.forEach(ct=>{
-    const id = ct.id || ct.name;
-    const agg = state.aggregates.conteudos[id];
-    
-    if(agg){
-      agg.totalTime = Math.max(0, agg.totalTime - (duration/(conteudos.length||1)));
-      if(!ct.onlyTheory){
-        agg.totalQs = Math.max(0, agg.totalQs - (ct.total||0));
-        agg.correctQs = Math.max(0, agg.correctQs - (ct.correct||0));
-        // ---> ADICIONE ESTAS DUAS LINHAS AQUI TAMBÉM <---
-            if (state.aggregates.materias[materia]) {
-              state.aggregates.materias[materia].totalQs = Math.max(0, state.aggregates.materias[materia].totalQs - (ct.total||0));
-              state.aggregates.materias[materia].correctQs = Math.max(0, state.aggregates.materias[materia].correctQs - (ct.correct||0));
-            }
-      }
-    }
-  });
-}
 
 // 9. PRIORIDADE + TENDÊNCIA
 function calcPrioridade(id){
