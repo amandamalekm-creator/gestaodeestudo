@@ -2178,24 +2178,26 @@ function renderLeis() {
     if(l.historico) lidosSemanaTotal += l.historico.filter(d => new Date(d) >= inicioSemana).length;
   });
   
-  const meta = state.metaLeiSemana || 20;
-  const percMeta = Math.min(100, Math.round((lidosSemanaTotal / meta) * 100));
+  const meta = state.metaLeiSemana !== undefined ? state.metaLeiSemana : 20;
+  const percMeta = meta > 0 ? Math.min(100, Math.round((lidosSemanaTotal / meta) * 100)) : (lidosSemanaTotal > 0 ? 100 : 0);
   const faltam = Math.max(0, meta - lidosSemanaTotal);
   
   goalContainer.innerHTML = `
     <div class="goal-card">
       <div class="goal-header">
         <div class="goal-title"><span>🎯</span> Meta da Semana</div>
-        <button class="goal-edit" onclick="editMetaLeiSemana()">✏️ Configurar</button>
+        <button class="goal-edit" style="cursor: pointer;" onclick="editMetaLeiSemana()">✏️ Configurar</button>
       </div>
       <div class="progress-bar-bg"><div class="progress-bar-fill" style="background:var(--accent2); width:${percMeta}%;"></div></div>
       <div style="display:flex; justify-content:space-between; font-size:13px; font-weight:500; margin-top:8px;">
         <div style="color:var(--text2);">${lidosSemanaTotal} blocos lidos</div>
         <div style="color:var(--accent); font-weight:600;">Meta: ${meta}</div>
       </div>
-      ${faltam > 0 
-        ? `<div class="goal-msg"><strong>Bom ritmo! 🔥</strong> Faltam apenas ${faltam} blocos para bater a sua meta até domingo.</div>`
-        : `<div class="goal-msg" style="background:#e8f5ec; border-left-color:var(--green);"><strong>Missão Cumprida! 🏆</strong> Você já bateu a meta semanal. O que ler agora é lucro extra!</div>`
+      ${meta === 0 
+        ? `<div class="goal-msg" style="background:#e8f5ec; border-left-color:var(--green);"><strong>Modo Livre 🍃</strong> Você definiu a meta como zero. Tudo o que ler é lucro sem pressão!</div>`
+        : (faltam > 0 
+          ? `<div class="goal-msg"><strong>Bom ritmo! 🔥</strong> Faltam apenas ${faltam} blocos para bater a sua meta até domingo.</div>`
+          : `<div class="goal-msg" style="background:#e8f5ec; border-left-color:var(--green);"><strong>Missão Cumprida! 🏆</strong> Você já bateu a meta semanal. O que ler agora é lucro extra!</div>`)
       }
     </div>
   `;
@@ -2213,8 +2215,9 @@ function renderLeis() {
   const total = blocosAtivos.length;
   const perc = total > 0 ? Math.round((concluídos / total) * 100) : 0;
 
+  // AQUI A MÁGICA DO LAYOUT: Removi o limite de 600px e adicionei o Grid nos blocos
   container.innerHTML = `
-    <div class="lei-card" style="max-width: 600px; margin: 0 auto;">
+    <div class="lei-card" style="width: 100%;">
       <div class="lei-header">
         <div>
           <span class="lei-tag">${escHtml(lei.materia)}</span>
@@ -2222,7 +2225,7 @@ function renderLeis() {
         </div>
         <div style="text-align: right;">
           <div class="lei-ciclo-badge">Ciclo ${lei.ciclo}</div>
-          <button class="btn-ghost" style="font-size:12px; margin-top:10px; color:var(--accent);" onclick="openLeiModal('${lei.id}')">✏️ Editar</button>
+          <button class="btn-ghost" style="font-size:12px; margin-top:10px; color:var(--accent); cursor:pointer;" onclick="openLeiModal('${lei.id}')">✏️ Editar</button>
         </div>
       </div>
       
@@ -2234,15 +2237,15 @@ function renderLeis() {
         Neste caderno: <strong style="color:var(--text);">${(lei.historico || []).filter(d => new Date(d) >= inicioSemana).length} blocos lidos nesta semana</strong>
       </div>
 
-     <div class="lei-checklist">
+      <div class="lei-checklist" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; margin-top: 15px;">
         ${lei.blocos.map((b, bIdx) => `
           <div class="lei-item ${b.done ? 'done' : ''} ${b.disabled ? 'item-disabled' : ''} ${b.importante ? 'is-important' : ''}" 
-               onclick="${b.disabled ? '' : `toggleLeiCheck(${lIdx}, ${bIdx})`}">
+               onclick="${b.disabled ? '' : `toggleLeiCheck(${lIdx}, ${bIdx})`}" style="margin: 0; height: 100%;">
             <input type="checkbox" ${b.done ? 'checked' : ''} ${b.disabled ? 'disabled' : ''}>
             <span style="${b.importante && !b.done && !b.disabled ? 'color: var(--danger); font-weight: 500;' : ''}">${b.importante ? '🔥 ' : ''}${escHtml(b.texto)}</span>
             <div class="lei-item-actions">
-               <button class="btn-important ${b.importante ? 'active' : ''}" onclick="event.stopPropagation(); toggleLeiImportant(${lIdx}, ${bIdx})" title="Alta Incidência">🔥</button>
-               <button class="btn-toggle-item" onclick="event.stopPropagation(); toggleLeiItemDisabled(${lIdx}, ${bIdx})" title="Habilitar/Desabilitar">
+               <button class="btn-important ${b.importante ? 'active' : ''}" onclick="event.stopPropagation(); toggleLeiImportant(${lIdx}, ${bIdx})" title="Alta Incidência" style="cursor:pointer;">🔥</button>
+               <button class="btn-toggle-item" onclick="event.stopPropagation(); toggleLeiItemDisabled(${lIdx}, ${bIdx})" title="Habilitar/Desabilitar" style="cursor:pointer;">
                  ${b.disabled ? '👁️' : '🚫'}
                </button>
             </div>
@@ -2250,9 +2253,9 @@ function renderLeis() {
         `).join('')}
       </div>
 
-      <div style="display:flex; gap:10px; margin-top:25px;">
-        <button class="btn btn-accent2" style="flex:1; justify-content:center;" onclick="resetCiclo(${lIdx})">↺ Reiniciar Ciclo</button>
-        <button class="btn-ghost" style="color:var(--danger); border:none;" onclick="deleteLei(${lIdx})">Excluir</button>
+      <div style="display:flex; gap:10px; margin-top:25px; max-width: 400px;">
+        <button class="btn btn-accent2" style="flex:1; justify-content:center; cursor:pointer;" onclick="resetCiclo(${lIdx})">↺ Reiniciar Ciclo</button>
+        <button class="btn-ghost" style="color:var(--danger); border:none; cursor:pointer;" onclick="deleteLei(${lIdx})">Excluir</button>
       </div>
     </div>
   `;
@@ -2302,8 +2305,8 @@ function getInicioSemana() {
 }
 
 async function editMetaLeiSemana() {
-  const novaMeta = prompt("Quantos blocos você quer ler por semana?", state.metaLeiSemana || 20);
-  if (novaMeta && !isNaN(novaMeta) && Number(novaMeta) > 0) {
+  const novaMeta = prompt("Quantos blocos você quer ler por semana? (Digite 0 para modo livre)", state.metaLeiSemana !== undefined ? state.metaLeiSemana : 20);
+  if (novaMeta !== null && !isNaN(novaMeta) && Number(novaMeta) >= 0) {
     state.metaLeiSemana = Number(novaMeta);
     await saveLeisDB();
     renderLeis();
