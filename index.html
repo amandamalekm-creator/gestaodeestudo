@@ -601,11 +601,25 @@ async function loadState() {
       else state.materias = [{name:'Regimento Interno', conteudos:[]}];
       await saveMateriasDB();
     }
-// Puxar Leis
+// Puxar Leis (Metadata Leve)
     const leisDoc = await getUserRef().collection('Dados').doc('Leis').get();
     if (leisDoc.exists) {
       state.leis = leisDoc.data().lista || [];
-      state.metaLeiSemana = leisDoc.data().metaSemana || 20; // Padrão: 20 blocos
+      state.metaLeiSemana = leisDoc.data().metaSemana || 20;
+      
+      // Puxar os históricos pesados da pasta separada
+      const histSnap = await getUserRef().collection('HistoricoLeis').get();
+      const histMap = {};
+      histSnap.forEach(doc => { histMap[doc.id] = doc.data().datas; });
+      
+      // Reconstruir as leis na memória do app juntando as duas partes
+      state.leis.forEach(lei => {
+        if (histMap[lei.id]) {
+          lei.historico = histMap[lei.id]; 
+        } else if (!lei.historico) {
+          lei.historico = []; // Blindagem se for caderno novo
+        }
+      });
     } else {
       state.metaLeiSemana = 20;
     }
@@ -1075,18 +1089,25 @@ function openFinishModal() {
   if (!timerRunning && !timerPaused) return;
   clearInterval(timerInterval); timerRunning=false;
   
-  // AUTOPREENCHIMENTO: Puxa os dados digitados no Mini-Painel
+  // AUTOPREENCHIMENTO REFORMULADO: Puxa os dados multi-conteúdo do PiP
   modalConteudos = [];
+  const bkp = localStorage.getItem('aprovado_pip_bkp');
+  if (bkp && Object.keys(liveSessionData).length === 0) liveSessionData = JSON.parse(bkp); // RESGATA O AIRBAG
+  
   const mat = getMateriaObj(currentMateria);
   
   for (const [ctName, data] of Object.entries(liveSessionData)) {
-    if (data.total > 0 || data.correct > 0) {
+    // AQUI A MÁGICA: A soma automática (Total = Certas + Erradas)
+    const totalQuestoes = (data.c || 0) + (data.e || 0);
+    const certas = data.c || 0;
+
+    if (totalQuestoes > 0) {
       let origId = null;
       if (mat && mat.conteudos) {
         const orig = mat.conteudos.find(c => (c.name || c) === ctName);
         if (orig && orig.id) origId = orig.id;
       }
-      modalConteudos.push({ id: origId, name: ctName, total: data.total, correct: data.correct, onlyTheory: false });
+      modalConteudos.push({ id: origId, name: ctName, total: totalQuestoes, correct: certas, onlyTheory: false });
     }
   }
 
@@ -1279,6 +1300,9 @@ function resetTimerUI() {
 // ══════════════════════════════════════════════════
 //  MINI-PAINEL FLUTUANTE (DOCUMENT PIP)
 // ══════════════════════════════════════════════════
+// ══════════════════════════════════════════════════
+//  MINI-PAINEL FLUTUANTE REFORMULADO ( DOCUMENT PIP V2 )
+// ══════════════════════════════════════════════════
 async function openPiP() {
   if (!('documentPictureInPicture' in window)) {
     showToast("⚠️ Seu navegador não suporta a janela flutuante (Use o Google Chrome ou Edge no PC).");
@@ -1287,99 +1311,138 @@ async function openPiP() {
   if (pipWindow) return; // Se já estiver aberto, ignora
 
   try {
-    pipWindow = await window.documentPictureInPicture.requestWindow({ width: 340, height: 380 });
+    pipWindow = await window.documentPictureInPicture.requestWindow({ width: 380, height: 480 });
     
-    // Injetar Fontes
+    // Injetar Fontes e Estilos Básicos para ficar igual ao app
     const fontLink = document.createElement('link');
     fontLink.href = 'https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@500&display=swap';
     fontLink.rel = 'stylesheet';
     pipWindow.document.head.appendChild(fontLink);
 
-    // Desenhar a Interface do Mini-Painel
+    // Desenhar a Interface do Novo Mini-Painel Multi-Conteúdo
     pipWindow.document.body.innerHTML = `
-      <div style="font-family:'DM Sans',sans-serif; background:#F5F3EE; height:100vh; padding:20px; color:#1A1714; box-sizing:border-box;">
-        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:15px;">
+      <div style="font-family:'DM Sans',sans-serif; background:#F5F3EE; height:100vh; padding:15px; color:#1A1714; box-sizing:border-box; display:flex; flex-direction:column;">
+        
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px; flex-shrink:0;">
            <div>
-             <div style="font-size:11px; font-weight:600; color:#6B6560; text-transform:uppercase; letter-spacing:0.5px;">Sessão Ativa</div>
-             <div style="font-size:16px; font-weight:600; color:#2D5A3D;" id="pip-materia">${currentMateria}</div>
+             <div style="font-size:10px; font-weight:600; color:#6B6560; text-transform:uppercase; letter-spacing:0.5px;">Aprovado · Satélite</div>
+             <div style="font-size:15px; font-weight:600; color:#2D5A3D;" id="pip-materia">${currentMateria}</div>
            </div>
-           <div style="font-family:'DM Mono',monospace; font-size:26px; font-weight:500; color:#1A1714; background:#FFF; padding:4px 10px; border-radius:8px; border:1px solid #E2DDD4;" id="pip-timer">${formatTime(timerSeconds)}</div>
+           <div style="font-family:'DM Mono',monospace; font-size:22px; font-weight:500; color:#1A1714; background:#FFF; padding:3px 8px; border-radius:6px; border:1px solid #E2DDD4;" id="pip-timer">${formatTime(timerSeconds)}</div>
         </div>
 
-        <div style="background:#FFF; padding:16px; border-radius:12px; border:1px solid #E2DDD4; box-shadow:0 4px 16px rgba(0,0,0,.04);">
-          <label style="font-size:12px; font-weight:600; color:#6B6560; display:block; margin-bottom:6px;">Qual conteúdo está a resolver?</label>
-          <select id="pip-conteudo" style="width:100%; padding:10px; border-radius:6px; border:1px solid #E2DDD4; background:#F0EDE6; font-family:'DM Sans',sans-serif; font-size:13px; outline:none; margin-bottom:20px; cursor:pointer;"></select>
-
-          <div style="display:flex; gap:12px; margin-bottom:20px;">
-            <div style="flex:1; text-align:center; background:#FDF3E7; border:1.5px solid rgba(200,135,58,.2); padding:12px 10px; border-radius:8px;">
-               <div style="font-size:11px; font-weight:600; color:#D4842A; text-transform:uppercase;">Questões</div>
-               <div id="pip-total" style="font-family:'DM Mono',monospace; font-size:28px; font-weight:500; color:#C8873A;">0</div>
-               <button id="pip-btn-erro" style="width:100%; margin-top:8px; background:#FFF; color:#C0392B; border:1px solid rgba(192,57,43,.3); padding:6px; border-radius:6px; font-size:12px; font-weight:600; cursor:pointer;">❌ Errei</button>
-            </div>
-            <div style="flex:1; text-align:center; background:#E8F2EB; border:1.5px solid rgba(45,90,61,.2); padding:12px 10px; border-radius:8px;">
-               <div style="font-size:11px; font-weight:600; color:#2D5A3D; text-transform:uppercase;">Acertos</div>
-               <div id="pip-correct" style="font-family:'DM Mono',monospace; font-size:28px; font-weight:500; color:#27AE60;">0</div>
-               <button id="pip-btn-correct" style="width:100%; margin-top:8px; background:#FFF; color:#27AE60; border:1px solid rgba(39,174,96,.3); padding:6px; border-radius:6px; font-size:12px; font-weight:600; cursor:pointer;">✅ Acertei</button>
-            </div>
+        <div style="background:#FFF; padding:10px; border-radius:8px; border:1px solid #E2DDD4; margin-bottom:12px; flex-shrink:0;">
+          <label style="font-size:11px; font-weight:600; color:#6B6560; display:block; margin-bottom:5px;">Adicionar conteúdo à sessão ativa:</label>
+          <div style="display:flex; gap:6px;">
+            <select id="pip-sel-conteudo" style="flex:1; padding:8px; border-radius:6px; border:1px solid #E2DDD4; background:#F0EDE6; font-family:'DM Sans',sans-serif; font-size:12px; outline:none; cursor:pointer;"></select>
+            <button id="pip-btn-add" style="padding:8px 12px; background:#2D5A3D; color:#FFF; border:none; border-radius:6px; font-family:'DM Sans',sans-serif; font-size:12px; font-weight:600; cursor:pointer;">+ Add</button>
           </div>
         </div>
 
-        <button id="pip-btn-finish" style="width:100%; padding:14px; background:#2D5A3D; color:#FFF; border:none; border-radius:8px; font-family:'DM Sans',sans-serif; font-size:14px; font-weight:600; cursor:pointer; margin-top:15px; box-shadow:0 4px 16px rgba(45,90,61,.3);">⏹ Finalizar no Aprovado</button>
+        <div style="flex:1; overflow-y:auto; margin-bottom:12px; padding-right:5px;" id="pip-list-container">
+           </div>
+
+        <button id="pip-btn-finish" style="width:100%; padding:12px; background:#2D5A3D; color:#FFF; border:none; border-radius:8px; font-family:'DM Sans',sans-serif; font-size:13px; font-weight:600; cursor:pointer; flex-shrink:0; box-shadow:0 4px 16px rgba(45,90,61,.3);">⏹ Finalizar e Salvar no Aprovado</button>
       </div>
     `;
     pipWindow.document.body.style.margin = "0";
 
-    // Puxar conteúdos para o Dropdown
-    const sel = pipWindow.document.getElementById('pip-conteudo');
+    // 1. Puxar todos os conteúdos da matéria para o Dropdown
+    const sel = pipWindow.document.getElementById('pip-sel-conteudo');
     const mat = getMateriaObj(currentMateria);
-    let optionsHtml = '<option value="">— Selecione um conteúdo —</option>';
+    let optionsHtml = '<option value="">— Escolha o tópico —</option>';
     if (mat && mat.conteudos) {
       mat.conteudos.forEach(c => {
         const cName = c.name || c;
-        optionsHtml += `<option value="${cName}">${cName}</option>`;
+        optionsHtml += `<option value="${escHtml(cName)}">${escHtml(cName)}</option>`;
       });
     }
     sel.innerHTML = optionsHtml;
 
-    // Atualizar números na tela do PiP
-    function updatePiPCounters() {
-      const ct = sel.value;
-      const btnOk = pipWindow.document.getElementById('pip-btn-correct');
-      const btnEr = pipWindow.document.getElementById('pip-btn-erro');
+    // 2. Função REFORMULADA para desenhar a lista de múltiplos conteúdos
+    function renderPiPList() {
+      const container = pipWindow.document.getElementById('pip-list-container');
       
-      if (!ct) {
-        pipWindow.document.getElementById('pip-correct').textContent = "-";
-        pipWindow.document.getElementById('pip-total').textContent = "-";
-        btnOk.disabled = true; btnOk.style.opacity = 0.4;
-        btnEr.disabled = true; btnEr.style.opacity = 0.4;
+      // Se não houver nada na memória invisível do PiP
+      if (Object.keys(liveSessionData).length === 0) {
+        container.innerHTML = `
+          <div style="text-align:center; padding:30px 10px; color:#9E9890; font-size:12px; background:#FFF; border-radius:8px; border:1px solid #E2DDD4;">
+             Use o campo acima para adicionar os conteúdos que você está estudando agora.
+          </div>
+        `;
         return;
       }
-      btnOk.disabled = false; btnOk.style.opacity = 1;
-      btnEr.disabled = false; btnEr.style.opacity = 1;
 
-      if (!liveSessionData[ct]) { liveSessionData[ct] = { total: 0, correct: 0 }; }
-      pipWindow.document.getElementById('pip-correct').textContent = liveSessionData[ct].correct;
-      pipWindow.document.getElementById('pip-total').textContent = liveSessionData[ct].total;
+      // Desenha uma linha para cada conteúdo ativo
+      container.innerHTML = Object.entries(liveSessionData).map(([name, data]) => {
+        const certas = data.c || 0;
+        const erradas = data.e || 0;
+        const total = certas + erradas; // SOMA AUTOMÁTICA
+        
+        return `
+          <div style="background:#FFF; padding:12px; border-radius:8px; border:1px solid #E2DDD4; margin-bottom:8px;">
+             <div style="font-size:12px; font-weight:600; color:#1A1714; margin-bottom:8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${escHtml(name)}">📖 ${escHtml(name)}</div>
+             
+             <div style="display:flex; align-items:center; gap:8px;">
+                <div style="font-family:'DM Mono',monospace; font-size:18px; font-weight:500; color:#9E9890; background:#F0EDE6; padding:5px 8px; border-radius:6px; min-width:40px; text-align:center;" title="Total de Questões">
+                  ${total}
+                </div>
+
+                <button class="pip-inc-c" data-name="${escHtml(name)}" style="flex:1; display:flex; justify-content:space-between; align-items:center; background:#E8F2EB; border:1.5px solid rgba(45,90,61,.2); color:#2D5A3D; padding:8px 10px; border-radius:6px; font-size:12px; font-weight:600; cursor:pointer;">
+                   <span>✅ Certa</span>
+                   <span style="font-family:'DM Mono',monospace; font-size:14px;">${certas}</span>
+                </button>
+
+                <button class="pip-inc-e" data-name="${escHtml(name)}" style="flex:1; display:flex; justify-content:space-between; align-items:center; background:#FDF3E7; border:1.5px solid rgba(200,135,58,.2); color:#C8873A; padding:8px 10px; border-radius:6px; font-size:12px; font-weight:600; cursor:pointer;">
+                   <span>❌ Errada</span>
+                   <span style="font-family:'DM Mono',monospace; font-size:14px;">${erradas}</span>
+                </button>
+             </div>
+          </div>
+        `;
+      }).join('');
+      
+      // Adicionar os escutadores de clique dinamicamente nas novas linhas
+      pipWindow.document.querySelectorAll('.pip-inc-c').forEach(btn => {
+        btn.addEventListener('click', () => incrementarPiP(btn.dataset.name, 'c'));
+      });
+      pipWindow.document.querySelectorAll('.pip-inc-e').forEach(btn => {
+        btn.addEventListener('click', () => incrementarPiP(btn.dataset.name, 'e'));
+      });
     }
 
-    sel.addEventListener('change', updatePiPCounters);
-    updatePiPCounters();
-
-    // Ações de Clique
-    pipWindow.document.getElementById('pip-btn-correct').addEventListener('click', () => {
-      const ct = sel.value; if(!ct) return;
-      liveSessionData[ct].total++;
-      liveSessionData[ct].correct++;
-      updatePiPCounters();
+    // 3. Função para adicionar conteúdo à lista ativa (PEDIDO PEDIDO B)
+    pipWindow.document.getElementById('pip-btn-add').addEventListener('click', () => {
+      const name = sel.value;
+      if (!name) return;
+      
+      // Se não existir na memória, cria a estrutura vazia {c:acertos, e:erradas}
+      if (!liveSessionData[name]) {
+        liveSessionData[name] = { c: 0, e: 0 };
+        // Ativa o Airbag invisível (salvamento no disco rígido do navegador)
+        localStorage.setItem('aprovado_pip_bkp', JSON.stringify(liveSessionData));
+      }
+      
+      sel.value = ""; // Limpa o dropdown
+      renderPiPList();
     });
 
-    pipWindow.document.getElementById('pip-btn-erro').addEventListener('click', () => {
-      const ct = sel.value; if(!ct) return;
-      liveSessionData[ct].total++;
-      updatePiPCounters();
-    });
+    // 4. Função de incremento cravada na estrutura {c, e}
+    function incrementarPiP(name, tipo) {
+      if (!liveSessionData[name]) return;
+      
+      if (tipo === 'c') liveSessionData[name].c++; // Incrementa certa
+      if (tipo === 'e') liveSessionData[name].e++; // Incrementa errada
+      
+      // Salva no Airbag e redesenha a lista inteira
+      localStorage.setItem('aprovado_pip_bkp', JSON.stringify(liveSessionData));
+      renderPiPList();
+    }
 
-    // Quando clicar em Finalizar no Mini-Painel
+    // Desenhar a lista inicial (pode vir vazia ou do Airbag)
+    renderPiPList();
+
+    // 5. Quando clicar em Finalizar no Mini-Painel
     pipWindow.document.getElementById('pip-btn-finish').addEventListener('click', () => {
       pipWindow.close(); // Fecha o quadradinho
       openFinishModal(); // Abre o modal na janela principal (já preenchido!)
@@ -1390,8 +1453,8 @@ async function openPiP() {
     pipWindow.addEventListener("pagehide", () => { pipWindow = null; });
 
   } catch (error) {
-    console.error("Erro no PIP:", error);
-    showToast("A janela flutuante falhou. Verifique as permissões do seu navegador.");
+    console.error("Erro no PIP V2:", error);
+    showToast("A janela flutuante falhou. Verifique as permissões do navegador.");
   }
 }
   
@@ -2351,13 +2414,43 @@ async function criarCadernoLei() {
   showToast(editingLeiId ? "Caderno atualizado!" : "Caderno criado!");
 }
 
-async function saveLeisDB() {
+async function saveLeisDB(leiModificadaId = null) {
+  // 1. Prepara a versão leve para o documento principal
+  const leisLeves = state.leis.map(lei => {
+    const { historico, ...resto } = lei;
+    return resto;
+  });
+
+  // Salva apenas nomes e caixinhas (1 Gravação)
   await getUserRef().collection('Dados').doc('Leis').set({ 
-    lista: state.leis, 
+    lista: leisLeves, 
     metaSemana: state.metaLeiSemana || 20 
   });
-}
 
+  // 2. Salva o histórico de forma inteligente
+  if (leiModificadaId) {
+    // Se sabemos qual lei mudou, salva SÓ ela
+    const lei = state.leis.find(l => l.id === leiModificadaId);
+    if (lei) {
+      if (lei.historico && lei.historico.length > 0) {
+        await getUserRef().collection('HistoricoLeis').doc(lei.id).set({ datas: lei.historico });
+      } else {
+        // CORREÇÃO: Se o histórico zerou, apaga o documento da nuvem para não gerar fantasmas!
+        await getUserRef().collection('HistoricoLeis').doc(lei.id).delete().catch(()=>{});
+      }
+    }
+  } else {
+    // Se for alteração global (ex: criar caderno), varre todas
+    for (const lei of state.leis) {
+      if (lei.historico && lei.historico.length > 0) {
+        await getUserRef().collection('HistoricoLeis').doc(lei.id).set({ datas: lei.historico });
+      } else {
+        // CORREÇÃO: Limpa qualquer histórico órfão
+        await getUserRef().collection('HistoricoLeis').doc(lei.id).delete().catch(()=>{});
+      }
+    }
+  }
+}
 function renderLeis() {
   const container = document.getElementById('leis-container');
   const selector = document.getElementById('leis-selector');
@@ -2474,28 +2567,42 @@ async function toggleLeiItemDisabled(lIdx, bIdx) {
   const item = state.leis[lIdx].blocos[bIdx];
   item.disabled = !item.disabled;
   if (item.disabled) item.done = false; 
-  await saveLeisDB();
+  await saveLeisDB(state.leis[lIdx].id); // <-- A vacina aplicada aqui!
   renderLeis();
 }
 async function toggleLeiImportant(lIdx, bIdx) {
   const item = state.leis[lIdx].blocos[bIdx];
   item.importante = !item.importante;
-  await saveLeisDB();
+  await saveLeisDB(state.leis[lIdx].id); // <-- A vacina aplicada aqui!
   renderLeis();
 }
 async function toggleLeiCheck(lIdx, bIdx) {
   const lei = state.leis[lIdx];
-  if (!lei.historico) lei.historico = []; // Cria o diário se não existir
+  if (!lei.historico) lei.historico = []; 
   
   lei.blocos[bIdx].done = !lei.blocos[bIdx].done;
   
   if (lei.blocos[bIdx].done) {
-    lei.historico.push(new Date().toISOString()); // Anota a data que leu
+    lei.historico.push(new Date().toISOString()); 
   } else {
-    lei.historico.pop(); // Remove se desmarcar sem querer
+    lei.historico.pop(); // Remove a última se desmarcar
   }
   
-  await saveLeisDB();
+  // ALTERAÇÃO: Retenção de 3 Meses (90 dias)
+  if (lei.historico.length > 0) {
+    const dataLimite = new Date();
+    dataLimite.setDate(dataLimite.getDate() - 90); // Define a meta de 90 dias atrás
+    
+    // Filtra mantendo apenas as datas que são de 90 dias atrás até hoje
+    const totalAntes = lei.historico.length;
+    lei.historico = lei.historico.filter(dataStr => new Date(dataStr) >= dataLimite);
+    const apagados = totalAntes - lei.historico.length;
+    
+    // Se apagou algo, mostramos um aviso discreto no console para você saber
+    if (apagados > 0) console.log(`[Lei Seca] ${apagados} registros antigos limpos do histórico.`);
+  }
+  
+  await saveLeisDB(lei.id); // Passa o ID exato para não salvar o que não precisa
   renderLeis();
 }
 
@@ -2529,8 +2636,13 @@ async function resetCiclo(lIdx) {
 
 async function deleteLei(lIdx) {
   if (!confirm("Deseja apagar este caderno de lei permanentemente?")) return;
+  const leiId = state.leis[lIdx].id; // Guarda o ID para apagar na nuvem
   state.leis.splice(lIdx, 1);
-  currentSelectedLeiId = null; // Limpa a memória para não dar erro na tela
+  currentSelectedLeiId = null; 
+  
+  // Apaga o histórico pesado na nuvem (na pasta HistoricoLeis)
+  await getUserRef().collection('HistoricoLeis').doc(leiId).delete().catch(()=>{});
+
   await saveLeisDB();
   renderLeis();
 }
