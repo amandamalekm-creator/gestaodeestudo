@@ -345,6 +345,7 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
           <button class="btn btn-outline-white" id="btn-pause" onclick="pauseTimer()" disabled>⏸ Pausar</button>
           <button class="btn btn-outline-white" id="btn-finish" onclick="openFinishModal()" disabled style="background:rgba(255,255,255,.12);color:rgba(255,255,255,.8);border-color:rgba(255,255,255,.25);">■ Finalizar</button>
           <button class="btn btn-outline-white" id="btn-pip" onclick="openPiP()" disabled style="background:rgba(0,0,0,.2); color:white; border-color:rgba(255,255,255,.3);">🪟 Mini-Painel</button>
+          <button class="btn btn-outline-white" id="btn-cancel-timer" onclick="cancelarTimer()" disabled style="background:rgba(255,255,255,.1);color:rgba(255,255,255,.6);border-color:transparent;">✕ Cancelar</button>
         </div>
       </div>
     </div>
@@ -1076,6 +1077,8 @@ function startTimer() {
   document.getElementById('btn-finish').disabled=false;
   document.getElementById('btn-pip').disabled=false; // LIGA O MINI-PAINEL
   if(!timerPaused) liveSessionData = {}; // ZERA A MEMÓRIA SE FOR NOVA SESSÃO
+  document.getElementById('btn-cancel-timer').disabled=false;
+  document.getElementById('btn-cancel-timer').style.cssText='background:rgba(192,57,43,.25);color:#ffb3b0;border-color:rgba(192,57,43,.4);';
   setFinishActive();
   document.getElementById('session-live').style.display='block';
   document.getElementById('session-start-label').textContent=sessionStart.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
@@ -1338,7 +1341,24 @@ function resetTimerUI() {
   document.getElementById('btn-finish').disabled=true;
   document.getElementById('btn-pip').disabled=true;
   document.getElementById('btn-finish').style.cssText='background:rgba(255,255,255,.12);color:rgba(255,255,255,.8);border-color:rgba(255,255,255,.25);';
+  const btnCancel = document.getElementById('btn-cancel-timer');
+  if(btnCancel) {
+    btnCancel.disabled=true;
+    btnCancel.style.cssText='background:rgba(255,255,255,.1);color:rgba(255,255,255,.6);border-color:transparent;';
+  }
   document.getElementById('session-live').style.display='none';
+}
+
+function cancelarTimer() {
+  if (!timerRunning && !timerPaused && timerSeconds === 0) return;
+  
+  if (!confirm("Tem certeza que deseja cancelar esta sessão? O tempo estudado será perdido.")) return;
+  
+  // Se a janelinha do Mini-Painel (PiP) estiver aberta, fecha ela automaticamente
+  if (pipWindow) pipWindow.close(); 
+  
+  resetTimerUI();
+  showToast('Sessão cancelada.');
 }
 
 // ══════════════════════════════════════════════════
