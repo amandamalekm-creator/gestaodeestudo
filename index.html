@@ -292,14 +292,13 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
 .rev-row:last-child { border-bottom: none; }
 
 .rev-badge { padding: 4px 10px; border-radius: 99px; font-size: 11px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; border: 1px solid transparent; }
-/* Efeito visual para linha ocultada */
 .rev-row.is-hidden { 
-  opacity: 0.35; 
-  background: var(--surface2); 
+  opacity: 0.3 !important; 
+  background: var(--surface2) !important; 
 }
 .rev-row.is-hidden .rev-col-name span { 
-  text-decoration: line-through; 
-  color: var(--text3); 
+  text-decoration: line-through !important; 
+  color: var(--text3) !important; 
 }
 
 /* Estilo do botão de alternar visibilidade */
@@ -2972,18 +2971,28 @@ function renderRevisao() {
 }
 
 async function toggleRevContent(mIdx, ctIdx) {
-  const conteudo = state.materias[mIdx].conteudos[ctIdx];
+  const conteudos = state.materias[mIdx].conteudos;
   
-  // Inverte o estado oculto
-  conteudo.hidden = !conteudo.hidden;
+  // Se a propriedade hidden não existir, começa como visível (false)
+  if (conteudos[ctIdx].hidden === undefined) {
+    conteudos[ctIdx].hidden = false;
+  }
+
+  // Inverte o estado: se era visível, fica oculto.
+  conteudos[ctIdx].hidden = !conteudos[ctIdx].hidden;
   
-  // Salva permanentemente no Firebase
+  // Salva na nuvem
   await saveMateriasDB();
   
-  // Atualiza a tela de Revisão na hora
+  // Redesenha a tela de revisão
   renderRevisao();
   
-  showToast(conteudo.hidden ? "Tópico ocultado." : "Tópico reativado.");
+  // Dispara a mensagem correta baseada no novo estado
+  if (conteudos[ctIdx].hidden) {
+    showToast("Tópico ocultado do edital.");
+  } else {
+    showToast("Tópico reativado.");
+  }
 }
   
 function setRevMateria(idx) {
