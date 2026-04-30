@@ -275,6 +275,29 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
 .goal-edit { font-size: 11px; color: var(--text3); cursor: pointer; background: none; border: none; transition: 0.2s; padding: 4px 8px; border-radius: 4px; font-family:'DM Sans',sans-serif; }
 .goal-edit:hover { background: var(--surface2); color: var(--text); }
 .goal-msg { margin-top: 16px; padding: 12px 16px; background: var(--accent2-light); border-left: 3px solid var(--accent2); border-radius: 4px; font-size: 12px; color: var(--text2); line-height: 1.5; }
+/* --- Módulo de Revisão (Estilo Notion) --- */
+.rev-tabs { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 12px; margin-bottom: 16px; border-bottom: 1px solid var(--border); scrollbar-width: none; }
+.rev-tabs::-webkit-scrollbar { display: none; }
+.rev-tab-btn { padding: 8px 16px; border: none; background: transparent; color: var(--text2); font-weight: 500; font-family: 'DM Sans', sans-serif; cursor: pointer; border-radius: var(--radius-sm); transition: 0.2s; white-space: nowrap; display: flex; align-items: center; gap: 6px; }
+.rev-tab-btn:hover { background: var(--surface2); color: var(--text); }
+.rev-tab-btn.active { background: var(--surface); color: var(--text); box-shadow: var(--shadow); border: 1px solid var(--border); }
+
+.rev-table-header { display: flex; padding: 12px 24px; background: var(--surface2); border-bottom: 1px solid var(--border); font-size: 11px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.05em; }
+.rev-col-name { flex: 1; display: flex; align-items: center; gap: 8px; }
+.rev-col-badge { width: 140px; display: flex; justify-content: center; }
+.rev-col-date { width: 120px; text-align: right; }
+
+.rev-row { display: flex; padding: 14px 24px; border-bottom: 1px solid var(--border); align-items: center; font-size: 13.5px; transition: background 0.15s; }
+.rev-row:hover { background: #faf9f7; }
+.rev-row:last-child { border-bottom: none; }
+
+.rev-badge { padding: 4px 10px; border-radius: 99px; font-size: 11px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; border: 1px solid transparent; }
+.rb-bom { background: #e8f5ec; color: var(--green); border-color: rgba(39, 174, 96, 0.2); }
+.rb-medio { background: #fef5e7; color: var(--warn); border-color: rgba(212, 132, 42, 0.2); }
+.rb-ruim { background: #fdedec; color: var(--danger); border-color: rgba(192, 57, 43, 0.2); }
+.rb-fazer { background: var(--surface2); color: var(--text2); border-color: var(--border); }
+.rb-teoria { background: var(--accent-light); color: var(--accent); border-color: rgba(45,90,61,.2); }
+.rb-dot { width: 6px; height: 6px; border-radius: 50%; }
 </style>
 </head>
 <body>
@@ -297,6 +320,7 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
     <button class="nav-btn" onclick="showPage('materias')"><span class="ico">📚</span><span>Matérias</span></button>
     <button class="nav-btn" onclick="showPage('analytics')"><span class="ico">📈</span><span>Analytics</span></button>
     <button class="nav-btn" onclick="showPage('leis')"><span class="ico">📖</span><span>Lei Seca</span></button>
+    <button class="nav-btn" onclick="showPage('revisao')"><span class="ico">🗓️</span><span>Revisão</span></button>
     <button class="nav-btn" onclick="fazerLogout()" style="margin-top:auto; color:var(--danger);"><span class="ico">🚪</span><span>Sair</span></button>
   </nav>
   <div class="sidebar-footer">Aprovado Nuvem V4
@@ -445,6 +469,25 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
 
   <div id="leis-container">
     </div>
+</section>
+  <section class="page" id="page-revisao">
+  <h1 class="page-title">Revisão</h1>
+  <p class="page-sub">Edital verticalizado com mapa de calor de desempenho e última data de contato.</p>
+
+  <!-- Abas das Matérias -->
+  <div class="rev-tabs" id="rev-tabs"></div>
+
+  <!-- Tabela de Conteúdos Estilo Notion -->
+  <div class="card" style="padding: 0; overflow: hidden; border-radius: 8px;">
+    <div class="rev-table-header">
+      <div class="rev-col-name">Aa Tópico do Edital</div>
+      <div class="rev-col-badge">Desempenho</div>
+      <div class="rev-col-date">Último Estudo</div>
+    </div>
+    <div id="rev-content-list" style="max-height: 60vh; overflow-y: auto;">
+       <!-- Linhas geradas via JavaScript -->
+    </div>
+  </div>
 </section>
 </main>
 </div>
@@ -848,6 +891,7 @@ function showPage(name) {
   if (name==='cronometro') renderCronometroPage();
   if (name==='analytics') renderAnalytics();
   if (name==='leis') renderLeis();
+  if (name==='revisao') renderRevisao();
 }
 
 // ══════════════════════════════════════════════════
@@ -2784,6 +2828,7 @@ function renderLeiStats() {
 subscribe(renderDashboard);
 subscribe(renderMaterias);
 subscribe(anRender);
+subscribe(renderRevisao);
 
 // ══════════════════════════════════════════════════
 //  INICIALIZAÇÃO ASSÍNCRONA
@@ -2794,6 +2839,99 @@ async function init(){
   refreshAllSelects();
   setDefaultManualDate();
   renderCronometroPage();
+}
+
+// ══════════════════════════════════════════════════
+//  MÓDULO DE REVISÃO (EDITAL VERTICALIZADO)
+// ══════════════════════════════════════════════════
+let revCurrentMateriaIndex = 0;
+
+function renderRevisao() {
+  const tabsEl = document.getElementById('rev-tabs');
+  const listEl = document.getElementById('rev-content-list');
+  if (!tabsEl || !listEl) return;
+
+  if (!state.materias || !state.materias.length) {
+    tabsEl.innerHTML = '';
+    listEl.innerHTML = '<div class="empty"><p>Nenhuma matéria cadastrada.</p></div>';
+    return;
+  }
+
+  // Previne erro se uma matéria for deletada
+  if (revCurrentMateriaIndex >= state.materias.length) revCurrentMateriaIndex = 0;
+
+  // 1. Desenhar as Abas Superiores (Estilo Notion)
+  tabsEl.innerHTML = state.materias.map((m, i) => `
+    <button class="rev-tab-btn ${i === revCurrentMateriaIndex ? 'active' : ''}" 
+            onclick="setRevMateria(${i})">
+      <span class="ico">📚</span> ${escHtml(m.name)}
+    </button>
+  `).join('');
+
+  // 2. Extrair a matéria atual e seus conteúdos (Ordem Fixa do Edital)
+  const mat = state.materias[revCurrentMateriaIndex];
+  const conteudos = mat.conteudos || [];
+
+  if (!conteudos.length) {
+    listEl.innerHTML = '<div style="padding:30px; text-align:center; color:var(--text3); font-size:13px;">Nenhum conteúdo cadastrado nesta matéria. Cadastre na aba "Matérias".</div>';
+    return;
+  }
+
+  // 3. Desenhar as Linhas da Tabela
+  listEl.innerHTML = conteudos.map(ct => {
+    const ctName = ct.name || ct;
+    const ctId = ct.id || ctName;
+    const agg = state.aggregates.conteudos[ctId];
+    
+    // Valores Padrão (Nunca estudado)
+    let badgeClass = 'rb-fazer';
+    let badgeText = 'Fazer';
+    let dotColor = '#9E9890';
+    let lastDate = '—';
+
+    // Se já tiver histórico salvo no Aggregates do Firebase
+    if (agg) {
+       // Se tem questões resolvidas, calcula a %
+       if (agg.totalQs > 0) {
+         const perc = Math.round((agg.correctQs / agg.totalQs) * 100);
+         if (perc >= 80) { badgeClass = 'rb-bom'; badgeText = 'Bom'; dotColor = '#27AE60'; } // Verde
+         else if (perc >= 60) { badgeClass = 'rb-medio'; badgeText = 'Médio'; dotColor = '#D4842A'; } // Amarelo
+         else { badgeClass = 'rb-ruim'; badgeText = 'Ruim'; dotColor = '#C0392B'; } // Vermelho
+       } 
+       // Se tem tempo de estudo, mas não tem questões
+       else if (agg.totalTime > 0) {
+         badgeClass = 'rb-teoria'; badgeText = 'Só Teoria'; dotColor = 'var(--accent)'; // Verde Escuro
+       }
+
+       // Resgatar a data do último estudo
+       if (agg.lastStudied) {
+         const d = new Date(agg.lastStudied);
+         lastDate = d.toLocaleDateString('pt-BR');
+       }
+    }
+
+    return `
+      <div class="rev-row">
+        <div class="rev-col-name">
+          <span style="color:var(--text3); font-size: 8px;">◼</span>
+          <span style="font-weight:500;">${escHtml(ctName)}</span>
+        </div>
+        <div class="rev-col-badge">
+          <span class="rev-badge ${badgeClass}">
+            <span class="rb-dot" style="background:${dotColor};"></span> ${badgeText}
+          </span>
+        </div>
+        <div class="rev-col-date" style="font-family:'DM Mono', monospace; color:var(--text2);">
+          ${lastDate}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function setRevMateria(idx) {
+  revCurrentMateriaIndex = idx;
+  renderRevisao();
 }
 
 </script>
