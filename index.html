@@ -2414,7 +2414,7 @@ async function criarCadernoLei() {
   showToast(editingLeiId ? "Caderno atualizado!" : "Caderno criado!");
 }
 
-async function saveLeisDB(leiModificadaId = null) {
+async function saveLeisDB(leiModificadaId = null, salvarApenasLista = false) {
   // 1. Prepara a versão leve para o documento principal
   const leisLeves = state.leis.map(lei => {
     const { historico, ...resto } = lei;
@@ -2426,6 +2426,8 @@ async function saveLeisDB(leiModificadaId = null) {
     lista: leisLeves, 
     metaSemana: state.metaLeiSemana || 20 
   });
+
+  if (salvarApenasLista) return; // <-- VACINA 2.0: Aborta aqui e poupa o Firebase se for só reordenação!
 
   // 2. Salva o histórico de forma inteligente
   if (leiModificadaId) {
@@ -2451,6 +2453,7 @@ async function saveLeisDB(leiModificadaId = null) {
     }
   }
 }
+
 function renderLeis() {
   const container = document.getElementById('leis-container');
   const selector = document.getElementById('leis-selector');
@@ -2463,9 +2466,20 @@ function renderLeis() {
     return;
   }
 
-  selector.innerHTML = state.leis.map(lei => `
+ selector.innerHTML = state.leis.map((lei, index) => `
     <div class="toggle-pill ${currentSelectedLeiId === lei.id ? 'active' : ''}" 
-         onclick="selectLei('${lei.id}')">${escHtml(lei.nome)}</div>
+         draggable="true"
+         data-index="${index}"
+         onclick="selectLei('${lei.id}')"
+         ondragstart="iniciarArrasto(event)"
+         ondragover="permitirSoltar(event)"
+         ondragleave="sairAreaSoltar(event)"
+         ondrop="soltarCaderno(event)"
+         ondragend="finalizarArrasto(event)"
+         style="cursor: grab; user-select: none;"
+         title="Clique e segure para arrastar">
+      ${escHtml(lei.nome)}
+    </div>
   `).join('');
 
   // CÁLCULO E DESENHO DA META GLOBAL
@@ -2604,6 +2618,68 @@ async function toggleLeiCheck(lIdx, bIdx) {
   
   await saveLeisDB(lei.id); // Passa o ID exato para não salvar o que não precisa
   renderLeis();
+}
+
+// ══════════════════════════════════════════════════
+//  MOTOR DE ARRASTAR E SOLTAR (DRAG & DROP)
+// ══════════════════════════════════════════════════
+let indexArrastado = null;
+
+function iniciarArrasto(e) {
+  indexArrastado = parseInt(e.target.getAttribute('data-index'));
+  e.target.style.opacity = '0.4'; // Deixa o caderno meio transparente enquanto arrasta
+  e.target.style.cursor = 'grabbing'; // Muda o mouse para a "mão fechada"
+}
+
+function permitirSoltar(e) {
+  e.preventDefault(); // Obrigatório no HTML5 para permitir que algo caia aqui
+  const alvo = e.target.closest('.toggle-pill');
+  if (alvo && parseInt(alvo.getAttribute('data-index')) !== indexArrastado) {
+    // Efeito visual para mostrar onde o caderno vai cair (fica gordinho)
+    alvo.style.transform = 'scale(1.08)';
+    alvo.style.transition = 'transform 0.1s';
+    alvo.style.boxShadow = '0 4px 12px rgba(45,90,61,0.2)';
+  }
+}
+
+function sairAreaSoltar(e) {
+  const alvo = e.target.closest('.toggle-pill');
+  if (alvo) {
+    // Tira o efeito gordinho se o mouse sair de cima
+    alvo.style.transform = '';
+    alvo.style.boxShadow = '';
+  }
+}
+
+async function soltarCaderno(e) {
+  e.preventDefault();
+  const alvo = e.target.closest('.toggle-pill');
+  if (!alvo) return;
+  
+  const indexAlvo = parseInt(alvo.getAttribute('data-index'));
+  
+  // Se soltou num lugar diferente de onde pegou, faz a troca!
+  if (indexArrastado !== null && indexArrastado !== indexAlvo) {
+    // Tira o caderno da posição original
+    const cadernoMovido = state.leis.splice(indexArrastado, 1)[0];
+    // Coloca o caderno na nova posição
+    state.leis.splice(indexAlvo, 0, cadernoMovido);
+    
+    // Salva silenciosamente no Firebase (Vacina 2.0 = 1 gravação só)
+    await saveLeisDB(null, true);
+    // Atualiza a tela
+    renderLeis();
+  }
+  
+  alvo.style.transform = '';
+  alvo.style.boxShadow = '';
+}
+
+function finalizarArrasto(e) {
+  e.target.style.opacity = '1';
+  e.target.style.cursor = 'grab';
+  indexArrastado = null;
+  renderLeis(); // Dá uma limpada na tela por precaução
 }
 
 function getInicioSemana() {
