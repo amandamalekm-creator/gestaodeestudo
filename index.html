@@ -1059,6 +1059,8 @@ async function editConteudo(mi, ci) {
     renderMaterias();
     if (typeof renderRevisao === 'function') renderRevisao(); // Atualiza a aba revisão também
     showToast("Conteúdo atualizado!");
+    refreshAllSelects(); // Atualiza os dropdowns do cronômetro e lançamento manual
+    if (pipWindow) openPiP(); // Reinicia o Mini-Painel se estiver aberto para carregar o novo nome
   }
 }
   async function moveConteudo(mi, ci, dir) {
@@ -2424,7 +2426,7 @@ function anRenderTopConteudos(pts) {
     const fillClass = item.avg >= 80 ? 'fill-green' : item.avg >= 60 ? 'fill-warn' : 'fill-danger';
     return `<div style="margin-bottom:12px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
-        <div style="font-size:12px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:70%;" title="${escHtml(item.key)}">${i+1}. ${escHtml(item.key.split(' › ')[1] || item.key)}</div>
+        <div style="font-size:12px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:70%;" title="${escHtml(item.key)}">${i+1}. ${escHtml(state.materias.flatMap(m => m.conteudos).find(c => (c.id || c.name || c) === item.key.split(' › ')[1])?.name || item.key.split(' › ')[1])}</div>
         <div style="font-family:'DM Mono',monospace;font-size:12px;color:${color};font-weight:700;">${item.avg}%</div>
       </div>
       <div class="progress-bar-bg"><div class="progress-bar-fill ${fillClass}" style="width:${item.avg}%;"></div></div>
