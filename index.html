@@ -1922,10 +1922,15 @@ function renderHistory() {
       const perc=sQs>0?Math.round(sC/sQs*100):null;
       const aprovStr=perc!==null?aprovBadge(perc):s.conteudos.length?'<span class="badge badge-neutral">Só teoria</span>':'<span class="badge badge-neutral">—</span>';
       
-      const ctDetail=s.conteudos.length
-        ? s.conteudos.map(c=>{
-            const cp=(!c.onlyTheory&&c.total>0)?Math.round(c.correct/c.total*100):null;
-            return `<div style="font-size:11px;color:var(--text2);">📖 ${escHtml(c.name)}${cp!==null?' · '+c.correct+'/'+c.total+' ('+cp+'%)':c.onlyTheory?' · teoria':''}</div>`;
+      const ctDetail = s.conteudos.length
+        ? s.conteudos.map(c => {
+            // Busca o nome atualizado na aba Matérias usando o ID ou Nome como chave
+            const matObj = state.materias.find(m => m.name === s.materia);
+            const ctObj = matObj?.conteudos?.find(ct => (ct.id === c.id || (ct.name || ct) === (c.name || c)));
+            const nomeExibicao = ctObj?.name || c.name || c;
+
+            const cp = (!c.onlyTheory && c.total > 0) ? Math.round(c.correct / c.total * 100) : null;
+            return `<div style="font-size:11px;color:var(--text2);">📖 ${escHtml(nomeExibicao)}${cp !== null ? ' · ' + c.correct + '/' + c.total + ' (' + cp + '%)' : c.onlyTheory ? ' · teoria' : ''}</div>`;
           }).join('')
         : '<span style="font-size:12px;color:var(--text3);">Estudo geral</span>';
         
