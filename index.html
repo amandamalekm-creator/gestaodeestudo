@@ -1035,6 +1035,7 @@ async function deleteConteudo(mi,ci) {
   refreshAllSelects();
   showToast('Conteúdo removido.');
 }
+
 async function editConteudo(mi, ci) {
   const mat = state.materias[mi];
   const ct = mat.conteudos[ci];
@@ -1043,26 +1044,32 @@ async function editConteudo(mi, ci) {
   const novoNome = prompt("Editar nome do conteúdo:", nomeAtual);
   
   if (novoNome !== null && novoNome.trim() !== "" && novoNome.trim() !== nomeAtual) {
-    // Se era apenas string, transforma em objeto. Se era objeto, atualiza o nome exibido.
+    // Preservação de vínculo: mantém o nome antigo como ID interno
     if (typeof mat.conteudos[ci] === 'string') {
       mat.conteudos[ci] = { 
-        id: nomeAtual, // O nome antigo vira ID para não perder o vínculo com as horas
+        id: nomeAtual, 
         name: novoNome.trim() 
       };
     } else {
-      // Se já era objeto, apenas muda o nome exibido, mas MANTÉM o ID original intacto
       mat.conteudos[ci].name = novoNome.trim();
       if (!mat.conteudos[ci].id) mat.conteudos[ci].id = nomeAtual;
     }
 
     await saveMateriasDB();
     renderMaterias();
-    if (typeof renderRevisao === 'function') renderRevisao(); // Atualiza a aba revisão também
+    
+    // Sincronização em tempo real entre as abas
+    if (typeof renderRevisao === 'function') renderRevisao();
+    if (typeof renderAnalytics === 'function') renderAnalytics();
+    if (typeof anPopulateMateriaFilter === 'function') anPopulateMateriaFilter();
+    
+    refreshAllSelects(); 
+    if (pipWindow) openPiP();
+
     showToast("Conteúdo atualizado!");
-    refreshAllSelects(); // Atualiza os dropdowns do cronômetro e lançamento manual
-    if (pipWindow) openPiP(); // Reinicia o Mini-Painel se estiver aberto para carregar o novo nome
   }
 }
+
   async function moveConteudo(mi, ci, dir) {
   const conteudos = state.materias[mi].conteudos;
   
@@ -2024,7 +2031,10 @@ function anBuildPoints(materiaFilter, conteudoFilter) {
     const d = new Date(s.date);
     s.conteudos.forEach(c => {
       if (c.onlyTheory || !c.total) return;
-      const cName = c.name || c;
+      // Busca o nome atualizado na lista de matérias usando o ID ou nome antigo como chave
+const matObj = state.materias.find(m => m.name === s.materia);
+const ctObj = matObj?.conteudos?.find(ct => (ct.id === c.id || (ct.name || ct) === (c.name || c)));
+const cName = ctObj?.name || c.name || c;
       if (conteudoFilter !== '__all__' && cName !== conteudoFilter) return;
       const perc = Math.round(c.correct / c.total * 100);
       pts.push({ date: d, dateStr: d.toLocaleDateString('pt-BR'), materia: s.materia, conteudo: cName || '(geral)', perc });
@@ -2091,17 +2101,32 @@ function anOnMateriaChange() {
   const materia = document.getElementById('an-materia-sel').value;
   const sel = document.getElementById('an-conteudo-sel');
   sel.innerHTML = '<option value="__all__">Todos os conteúdos</option>';
+  
   const seen = new Set();
-  state.sessions.forEach(s => {
-    if (materia !== '__all__' && s.materia !== materia) return;
-    s.conteudos.forEach(c => { const cName = c.name || c; if (cName) seen.add(cName); });
-  });
+  
+  // NOVA LÓGICA: Busca os nomes direto da aba Matérias
+  const matObj = state.materias.find(m => m.name === materia);
+  if (matObj && matObj.conteudos) {
+    matObj.conteudos.forEach(c => {
+      const nomeVisual = c.name || c;
+      seen.add(nomeVisual);
+    });
+  } else if (materia === '__all__') {
+    // Se selecionou "Todas", pega os nomes de todas as matérias cadastradas
+    state.materias.forEach(m => {
+      if (m.conteudos) m.conteudos.forEach(c => seen.add(c.name || c));
+    });
+  }
+
   [...seen].sort().forEach(c => {
-    const o = document.createElement('option'); o.value = c; o.textContent = c; sel.appendChild(o);
+    const o = document.createElement('option'); 
+    o.value = c; 
+    o.textContent = c; 
+    sel.appendChild(o);
   });
   anRender();
 }
-
+  
 function anBuildSubjectPills() {
   const subjects = [...new Set(state.sessions.map(s => s.materia))].sort();
   anActiveSubjects = new Set(subjects); 
