@@ -410,6 +410,13 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
     border-left-color: var(--accent2); 
     background: var(--accent2-light); 
 }
+/* Card Ignorado */
+.mission-card-mini.ignored { 
+    opacity: 0.5; 
+    border-left-color: var(--border); 
+    background: transparent; 
+    filter: grayscale(100%);
+}
   
 .schedule-list { display: flex; flex-direction: column; gap: 5px; }
 .schedule-item { display: flex; gap: 4px; align-items: center; }
@@ -419,6 +426,11 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
 .btn-remove-mat:hover { color: var(--danger); }
 .mission-progress-bar { height: 4px; background: rgba(255,255,255,0.2); border-radius: 10px; margin: 8px 0; overflow: hidden; width: 100%; }
 .mission-progress-fill { height: 100%; background: #FFF; transition: width 0.4s; }
+
+/* Barra de rolagem personalizada para a grade */
+.schedule-grid::-webkit-scrollbar { height: 6px; }
+.schedule-grid::-webkit-scrollbar-track { background: transparent; }
+.schedule-grid::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
 </style>
 </head>
 <body>
@@ -1566,7 +1578,7 @@ async function openPiP() {
     showToast("⚠️ Seu navegador não suporta a janela flutuante (Use o Google Chrome ou Edge no PC).");
     return;
   }
-  if (pipWindow) return; // Se já estiver aberto, ignora
+  if (pipWindow) return;
 
   try {
     pipWindow = await window.documentPictureInPicture.requestWindow({ width: 380, height: 480 });
@@ -1577,9 +1589,20 @@ async function openPiP() {
     fontLink.rel = 'stylesheet';
     pipWindow.document.head.appendChild(fontLink);
 
+    // INJEÇÃO DE CSS: Barra de rolagem fininha exclusiva para o PiP
+    const pipStyle = pipWindow.document.createElement('style');
+    pipStyle.textContent = `
+      body { margin: 0; background: #F5F3EE; }
+      ::-webkit-scrollbar { width: 6px; height: 6px; }
+      ::-webkit-scrollbar-track { background: transparent; }
+      ::-webkit-scrollbar-thumb { background: #d0cbc3; border-radius: 10px; }
+      ::-webkit-scrollbar-thumb:hover { background: #9E9890; }
+    `;
+    pipWindow.document.head.appendChild(pipStyle);
+
     // Desenhar a Interface do Novo Mini-Painel Multi-Conteúdo
     pipWindow.document.body.innerHTML = `
-      <div style="font-family:'DM Sans',sans-serif; background:#F5F3EE; height:100vh; padding:15px; color:#1A1714; box-sizing:border-box; display:flex; flex-direction:column;">
+      <div style="font-family:'DM Sans',sans-serif; background:#F5F3EE; min-height:100vh; padding:12px; color:#1A1714; box-sizing:border-box; display:flex; flex-direction:column; overflow-y:auto; overflow-x:hidden;">
         
         <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px; flex-shrink:0;">
            <div>
@@ -1597,13 +1620,12 @@ async function openPiP() {
           </div>
         </div>
 
-        <div style="flex:1; overflow-y:auto; margin-bottom:12px; padding-right:5px;" id="pip-list-container">
+        <div style="flex:1; overflow-y:auto; margin-bottom:12px; padding-right:5px; min-height: 80px;" id="pip-list-container">
            </div>
 
-        <button id="pip-btn-finish" style="width:100%; padding:12px; background:#2D5A3D; color:#FFF; border:none; border-radius:8px; font-family:'DM Sans',sans-serif; font-size:13px; font-weight:600; cursor:pointer; flex-shrink:0; box-shadow:0 4px 16px rgba(45,90,61,.3);">⏹ Finalizar e Salvar no Aprovado</button>
+        <button id="pip-btn-finish" style="width:100%; padding:12px; background:#2D5A3D; color:#FFF; border:none; border-radius:8px; font-family:'DM Sans',sans-serif; font-size:13px; font-weight:600; cursor:pointer; flex-shrink:0; box-shadow:0 4px 16px rgba(45,90,61,.3); margin-top:auto;">⏹ Finalizar e Salvar</button>
       </div>
     `;
-    pipWindow.document.body.style.margin = "0";
 
     // 1. Puxar todos os conteúdos da matéria para o Dropdown
     const sel = pipWindow.document.getElementById('pip-sel-conteudo');
@@ -1635,23 +1657,23 @@ async function openPiP() {
       container.innerHTML = Object.entries(liveSessionData).map(([name, data]) => {
         const certas = data.c || 0;
         const erradas = data.e || 0;
-        const total = certas + erradas; // SOMA AUTOMÁTICA
+        const total = certas + erradas; 
         
         return `
           <div style="background:#FFF; padding:12px; border-radius:8px; border:1px solid #E2DDD4; margin-bottom:8px;">
              <div style="font-size:12px; font-weight:600; color:#1A1714; margin-bottom:8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${escHtml(name)}">📖 ${escHtml(name)}</div>
              
-             <div style="display:flex; align-items:center; gap:8px;">
+             <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
                 <div style="font-family:'DM Mono',monospace; font-size:18px; font-weight:500; color:#9E9890; background:#F0EDE6; padding:5px 8px; border-radius:6px; min-width:40px; text-align:center;" title="Total de Questões">
                   ${total}
                 </div>
 
-                <button class="pip-inc-c" data-name="${escHtml(name)}" style="flex:1; display:flex; justify-content:space-between; align-items:center; background:#E8F2EB; border:1.5px solid rgba(45,90,61,.2); color:#2D5A3D; padding:8px 10px; border-radius:6px; font-size:12px; font-weight:600; cursor:pointer;">
+                <button class="pip-inc-c" data-name="${escHtml(name)}" style="flex:1; min-width:80px; display:flex; justify-content:space-between; align-items:center; background:#E8F2EB; border:1.5px solid rgba(45,90,61,.2); color:#2D5A3D; padding:8px 10px; border-radius:6px; font-size:12px; font-weight:600; cursor:pointer;">
                    <span>✅ Certa</span>
                    <span style="font-family:'DM Mono',monospace; font-size:14px;">${certas}</span>
                 </button>
 
-                <button class="pip-inc-e" data-name="${escHtml(name)}" style="flex:1; display:flex; justify-content:space-between; align-items:center; background:#FDF3E7; border:1.5px solid rgba(200,135,58,.2); color:#C8873A; padding:8px 10px; border-radius:6px; font-size:12px; font-weight:600; cursor:pointer;">
+                <button class="pip-inc-e" data-name="${escHtml(name)}" style="flex:1; min-width:80px; display:flex; justify-content:space-between; align-items:center; background:#FDF3E7; border:1.5px solid rgba(200,135,58,.2); color:#C8873A; padding:8px 10px; border-radius:6px; font-size:12px; font-weight:600; cursor:pointer;">
                    <span>❌ Errada</span>
                    <span style="font-family:'DM Mono',monospace; font-size:14px;">${erradas}</span>
                 </button>
@@ -1669,42 +1691,39 @@ async function openPiP() {
       });
     }
 
-    // 3. Função para adicionar conteúdo à lista ativa (PEDIDO PEDIDO B)
+    // 3. Função para adicionar conteúdo à lista ativa
     pipWindow.document.getElementById('pip-btn-add').addEventListener('click', () => {
       const name = sel.value;
       if (!name) return;
       
-      // Se não existir na memória, cria a estrutura vazia {c:acertos, e:erradas}
       if (!liveSessionData[name]) {
         liveSessionData[name] = { c: 0, e: 0 };
-        // Ativa o Airbag invisível (salvamento no disco rígido do navegador)
         localStorage.setItem('aprovado_pip_bkp', JSON.stringify(liveSessionData));
       }
       
-      sel.value = ""; // Limpa o dropdown
+      sel.value = ""; 
       renderPiPList();
     });
 
-    // 4. Função de incremento cravada na estrutura {c, e}
+    // 4. Função de incremento
     function incrementarPiP(name, tipo) {
       if (!liveSessionData[name]) return;
       
-      if (tipo === 'c') liveSessionData[name].c++; // Incrementa certa
-      if (tipo === 'e') liveSessionData[name].e++; // Incrementa errada
+      if (tipo === 'c') liveSessionData[name].c++; 
+      if (tipo === 'e') liveSessionData[name].e++; 
       
-      // Salva no Airbag e redesenha a lista inteira
       localStorage.setItem('aprovado_pip_bkp', JSON.stringify(liveSessionData));
       renderPiPList();
     }
 
-    // Desenhar a lista inicial (pode vir vazia ou do Airbag)
+    // Desenhar a lista inicial
     renderPiPList();
 
     // 5. Quando clicar em Finalizar no Mini-Painel
     pipWindow.document.getElementById('pip-btn-finish').addEventListener('click', () => {
-      pipWindow.close(); // Fecha o quadradinho
-      openFinishModal(); // Abre o modal na janela principal (já preenchido!)
-      window.focus(); // Traz a aba do Aprovado para a frente
+      pipWindow.close(); 
+      openFinishModal(); 
+      window.focus(); 
     });
 
     // Limpar variável se o usuário fechar no "X"
@@ -3060,6 +3079,74 @@ function renderLeiStats() {
 
   panel.innerHTML = `<div class="grid-3">${html}</div>`;
 }
+
+// ══════════════════════════════════════════════════
+//  MOTOR DE ARRASTAR E SOLTAR (MATÉRIAS / REVISÃO)
+// ══════════════════════════════════════════════════
+let indexArrastadoMat = null;
+
+function iniciarArrastoMat(e) {
+  indexArrastadoMat = parseInt(e.target.getAttribute('data-index'));
+  e.target.style.opacity = '0.4'; 
+  e.target.style.cursor = 'grabbing'; 
+}
+
+function permitirSoltarMat(e) {
+  e.preventDefault(); 
+  const alvo = e.target.closest('.rev-tab-btn');
+  if (alvo && parseInt(alvo.getAttribute('data-index')) !== indexArrastadoMat) {
+    // Efeito visual de "espremer" para mostrar onde vai cair
+    alvo.style.transform = 'scale(1.05)';
+  }
+}
+
+function sairAreaSoltarMat(e) {
+  const alvo = e.target.closest('.rev-tab-btn');
+  if (alvo) alvo.style.transform = '';
+}
+
+async function soltarMat(e) {
+  e.preventDefault();
+  const alvo = e.target.closest('.rev-tab-btn');
+  if (!alvo) return;
+  
+  const indexAlvo = parseInt(alvo.getAttribute('data-index'));
+  
+  // Se soltou num lugar diferente de onde pegou
+  if (indexArrastadoMat !== null && indexArrastadoMat !== indexAlvo) {
+    
+    // 1. Memoriza qual aba está aberta no momento para não perder o foco
+    const materiaAtualAberta = state.materias[revCurrentMateriaIndex];
+
+    // 2. Extrai e insere a matéria na nova posição
+    const matMovida = state.materias.splice(indexArrastadoMat, 1)[0];
+    state.materias.splice(indexAlvo, 0, matMovida);
+    
+    // 3. Atualiza o índice da aba para mantê-la aberta mesmo após mudar de lugar
+    if (materiaAtualAberta) {
+        revCurrentMateriaIndex = state.materias.indexOf(materiaAtualAberta);
+    }
+
+    // 4. Salva a nova ordem global no Firebase
+    await saveMateriasDB();
+    
+    // 5. Atualiza tudo que usa a ordem de matérias
+    renderRevisao();
+    renderMaterias(); 
+    refreshAllSelects();
+    
+    showToast("Ordem das matérias atualizada!");
+  }
+  
+  alvo.style.transform = '';
+}
+
+function finalizarArrastoMat(e) {
+  e.target.style.opacity = '1';
+  e.target.style.cursor = 'grab';
+  indexArrastadoMat = null;
+  renderRevisao(); 
+}
   
 // 12. SUBSCRIBE REATIVIDADE NO FINAL
 subscribe(renderDashboard);
@@ -3096,8 +3183,18 @@ function renderRevisao() {
 
   if (revCurrentMateriaIndex >= state.materias.length) revCurrentMateriaIndex = 0;
 
-  tabsEl.innerHTML = state.materias.map((m, i) => `
-    <button class="rev-tab-btn ${i === revCurrentMateriaIndex ? 'active' : ''}" onclick="setRevMateria(${i})">
+ tabsEl.innerHTML = state.materias.map((m, i) => `
+    <button class="rev-tab-btn ${i === revCurrentMateriaIndex ? 'active' : ''}" 
+      onclick="setRevMateria(${i})"
+      draggable="true"
+      data-index="${i}"
+      ondragstart="iniciarArrastoMat(event)"
+      ondragover="permitirSoltarMat(event)"
+      ondragleave="sairAreaSoltarMat(event)"
+      ondrop="soltarMat(event)"
+      ondragend="finalizarArrastoMat(event)"
+      style="cursor: grab; user-select: none;"
+      title="Clique e arraste para reordenar">
       ${escHtml(m.name)}
     </button>
   `).join('');
@@ -3283,44 +3380,105 @@ function renderDailyMission() {
     materiasDeHoje.forEach(mName => {
         if (!mName || !mName.trim()) return;
 
-        // Verifica se houve sessão para esta matéria na data de HOJE
+        // Verifica se houve sessão HOJE
         const jaEstudou = state.sessions.some(s => 
             s.materia.toLowerCase() === mName.toLowerCase() && 
             new Date(s.date).toLocaleDateString('pt-BR') === hojeDataStr
         );
 
-        // Algoritmo de sugestão de tópico (Urgência)
-        let sugerido = { ct: "Estudo Geral", motivo: "Tópico inicial", score: -1 };
+        // Verifica se a matéria foi ignorada HOJE na memória local
+        const isIgnored = localStorage.getItem(`aprovado_ignore_${mName}_${hojeDataStr}`) === 'true';
+
+        // ALGORITMO DE URGÊNCIA E EMERGÊNCIA
+        let sugerido = { ct: "Estudo Geral", motivo: "Tópico inicial (Avanço)", score: -1, isEmergency: false };
         const matObj = state.materias.find(m => m.name.toLowerCase() === mName.toLowerCase());
 
         if (matObj && matObj.conteudos) {
             matObj.conteudos.forEach((ct, idx) => {
                 const ctId = ct.id || ct.name;
                 const agg = state.aggregates.conteudos[ctId];
+                
                 let score = 0;
-                if (!agg) { score = 100 - idx; } 
-                else {
-                    const perc = agg.totalQs > 0 ? (agg.correctQs / agg.totalQs) * 100 : 100;
+                let isEmergency = false;
+                let motivoText = "";
+
+                if (!agg) { 
+                    score = 100 - idx; 
+                    motivoText = "Tópico novo (Avançar edital)";
+                } else {
+                    const perc = agg.totalQs > 0 ? Math.round((agg.correctQs / agg.totalQs) * 100) : 100;
                     const dias = agg.lastStudied ? Math.floor((Date.now() - new Date(agg.lastStudied)) / 86400000) : 30;
-                    score = (100 - perc) + (dias * 2);
+
+                    if (agg.totalQs > 0 && perc < 60) {
+                        score = 1000 + dias; 
+                        isEmergency = true;
+                        motivoText = `🚨 Rendimento Crítico (${perc}%)`;
+                    } else if (agg.totalQs > 0 && perc < 75 && dias >= 7) {
+                        score = 900 + dias; 
+                        isEmergency = true;
+                        motivoText = `🚨 Queda de Retenção (${perc}% há ${dias} dias)`;
+                    } else if (perc >= 85 && dias >= 30) {
+                        score = 850 + dias;
+                        isEmergency = true;
+                        motivoText = `🚨 Revisão Mensal (${dias} dias sem ver)`;
+                    } else if (perc < 85 && dias >= 15) {
+                        score = 800 + dias; 
+                        isEmergency = true;
+                        motivoText = `🚨 Risco de Esquecimento (${dias} dias sem ver)`;
+                    } else {
+                        score = (100 - perc) + (dias * 1.5);
+                        motivoText = perc < 80 ? "🟠 Reforço Necessário" : "Manutenção de rotina";
+                    }
                 }
+
                 if (score > sugerido.score && !ct.hidden) {
-                    sugerido = { ct: ct.name || ct, score: score };
+                    sugerido = { ct: ct.name || ct, motivo: motivoText, score: score, isEmergency: isEmergency };
                 }
             });
         }
 
-        const statusLabel = jaEstudou ? '✅ Concluído' : '⏳ Pendente';
-        const cardClass = jaEstudou ? 'completed' : (sugerido.score > 60 ? 'priority' : '');
+        // Define Rótulo e Estilo baseado no Status (Concluído > Ignorado > Pendente)
+        let statusLabel = '';
+        let cardClass = '';
 
+        if (jaEstudou) {
+            statusLabel = '✅ Concluído';
+            cardClass = 'completed';
+        } else if (isIgnored) {
+            statusLabel = '🙈 Ignorado';
+            cardClass = 'ignored';
+        } else if (sugerido.isEmergency) {
+            statusLabel = '⏳ Pendente';
+            cardClass = 'emergency';
+        } else {
+            statusLabel = '⏳ Pendente';
+            cardClass = sugerido.score > 60 ? 'priority' : '';
+        }
+
+        // Montagem do Card
         html += `
             <div class="mission-card-mini ${cardClass}">
                 <div style="display:flex; justify-content:space-between; align-items:center;">
                     <strong style="font-size:13px; color:var(--text);">${mName}</strong>
-                    <span style="font-size:10px; font-weight:800; color:${jaEstudou ? 'var(--green)' : 'var(--text3)'}">${statusLabel}</span>
+                    <span style="font-size:10px; font-weight:800; color:${jaEstudou ? 'var(--green)' : (isIgnored ? 'var(--text3)' : (sugerido.isEmergency ? 'var(--danger)' : 'var(--text3)'))}">${statusLabel}</span>
                 </div>
-                <div style="font-size:12px; color:var(--text2); margin: 5px 0;">Tópico: ${sugerido.ct}</div>
-                ${!jaEstudou ? `<button class="btn btn-primary btn-sm" style="width:100%; justify-content:center; margin-top:5px;" onclick="startMission('${mName}', '${sugerido.ct}')">Estudar Agora</button>` : ''}
+                
+                <div style="font-size:12px; color:var(--text2); margin: 5px 0;">
+                    Tópico: <span style="font-weight: 500; color:var(--text);">${sugerido.ct}</span>
+                </div>
+                
+                ${(sugerido.motivo && !isIgnored && !jaEstudou) ? `<div style="font-size:11px; font-weight:600; color:${sugerido.isEmergency ? 'var(--danger)' : 'var(--warn)'}; margin-bottom: 5px;">${sugerido.motivo}</div>` : ''}
+                
+                ${(!jaEstudou && !isIgnored) ? `
+                  <div style="display:flex; gap:8px; margin-top:5px;">
+                    <button class="btn ${sugerido.isEmergency ? 'btn-primary' : 'btn-secondary'} btn-sm" style="flex:1; justify-content:center; ${sugerido.isEmergency ? 'background: var(--danger);' : ''}" onclick="startMission('${mName}', '${sugerido.ct}')">${sugerido.isEmergency ? 'Revisão Urgente' : 'Estudar'}</button>
+                    <button class="btn btn-ghost btn-sm" style="padding:6px; color:var(--text3);" onclick="ignorarMissao('${mName}')" title="Ignorar missão de hoje">🙈</button>
+                  </div>
+                ` : ''}
+
+                ${isIgnored ? `
+                  <button class="btn btn-ghost btn-sm" style="width:100%; justify-content:center; margin-top:5px; font-size:11px; color:var(--text2);" onclick="desfazerIgnorar('${mName}')">↺ Mudei de ideia (Estudar)</button>
+                ` : ''}
             </div>
         `;
     });
@@ -3328,6 +3486,20 @@ function renderDailyMission() {
     html += `</div>`;
     container.innerHTML = html;
 }
+
+function ignorarMissao(materia) {
+    const hojeDataStr = new Date().toLocaleDateString('pt-BR');
+    localStorage.setItem(`aprovado_ignore_${materia}_${hojeDataStr}`, 'true');
+    renderDailyMission();
+    showToast(`Você ignorou ${materia} por hoje.`);
+}
+
+function desfazerIgnorar(materia) {
+    const hojeDataStr = new Date().toLocaleDateString('pt-BR');
+    localStorage.removeItem(`aprovado_ignore_${materia}_${hojeDataStr}`);
+    renderDailyMission();
+}
+  
 function startMission(materia, conteudo) {
     const sel = document.getElementById('materia-select');
     sel.value = materia;
