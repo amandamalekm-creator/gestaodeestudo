@@ -1346,7 +1346,7 @@ function openFinishModal() {
       let origId = null;
       if (mat && mat.conteudos) {
         const orig = mat.conteudos.find(c => (c.name || c) === ctName);
-        if (orig && orig.id) origId = orig.id;
+        if (orig) origId = orig.id || orig.name || orig; // <- A CORREÇÃO ESTÁ AQUI
       }
       modalConteudos.push({ id: origId, name: ctName, total: totalQuestoes, correct: certas, onlyTheory: false });
     }
@@ -1398,7 +1398,7 @@ function addModalConteudo() {
   let origId = null;
   if (mat && mat.conteudos) {
     const orig = mat.conteudos.find(c => (c.name || c) === name);
-    if (orig && orig.id) origId = orig.id;
+    if (orig) origId = orig.id || orig.name || orig; // <- A CORREÇÃO ESTÁ AQUI
   }
 
   modalConteudos.push({ id: origId, name, total:0, correct:0, onlyTheory:false });
@@ -1766,7 +1766,7 @@ function addManualConteudo() {
   let origId = null;
   if (mat && mat.conteudos) {
     const orig = mat.conteudos.find(c => (c.name || c) === name);
-    if (orig && orig.id) origId = orig.id;
+    if (orig) origId = orig.id || orig.name || orig; // <- A CORREÇÃO ESTÁ AQUI
   }
 
   manualConteudos.push({ id: origId, name, total:0, correct:0, onlyTheory:false });
