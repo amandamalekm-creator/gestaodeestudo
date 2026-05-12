@@ -341,19 +341,40 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
 .btn-mission:hover { background: #e0964b; transform: translateY(-1px); }
 
 /* Grade Estilo Notion (Mais larga e elegante) */
+/* Grade em Colunas Horizontais (Estilo Planejador Profissional) */
 .schedule-grid { 
-    display: grid; 
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); 
-    gap: 15px; 
-    margin-bottom: 20px; 
+    display: flex; 
+    gap: 12px; 
+    overflow-x: auto; /* Permite rolar para o lado se a tela for pequena */
+    padding-bottom: 15px;
+    align-items: flex-start;
+    scrollbar-width: thin; /* Deixa a barra de rolagem discreta */
 }
+
 .schedule-day { 
+    flex: 1; /* Faz todos os dias terem a mesma largura */
+    min-width: 200px; /* Impede que fiquem espremidos demais */
     background: var(--surface); 
     border: 1px solid var(--border); 
     border-radius: var(--radius); 
-    padding: 15px; 
+    padding: 12px; 
     box-shadow: var(--shadow);
+    display: flex;
+    flex-direction: column;
+    height: auto;
 }
+
+.schedule-day-title {
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 12px;
+    text-align: center;
+    border-bottom: 2px solid var(--accent-light);
+    padding-bottom: 5px;
+}
+
 .schedule-input { 
     width: 100%; 
     border: 1px solid var(--border); 
@@ -364,6 +385,14 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
     color: var(--text); 
     outline: none;
     margin-bottom: 5px;
+    transition: all 0.2s ease;
+}
+
+.schedule-input:focus { 
+    border-color: var(--accent); 
+    background: #FFF; 
+    box-shadow: 0 0 0 2px var(--accent-light);
+
 }
 
 /* Container das Missões Diárias */
@@ -3187,34 +3216,30 @@ function renderScheduleSetup() {
     const container = document.getElementById('schedule-setup');
     if (!container) return;
     
-    const diasNomes = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
-    const ordemSemana = [1, 2, 3, 4, 5, 6, 0]; // Segunda a Domingo
+    const diasNomes = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+    const ordemSemana = [1, 2, 3, 4, 5, 6, 0]; // Começa por Segunda, termina em Domingo
 
     container.innerHTML = ordemSemana.map(i => {
-        // Força a conversão para lista caso o banco de dados envie texto antigo
-        let materias = state.schedule[i];
-        if (!Array.isArray(materias)) materias = [];
+        let materias = state.schedule[i] || [];
+        if (!Array.isArray(materias)) materias = []; 
 
         return `
         <div class="schedule-day">
             <div class="schedule-day-title">${diasNomes[i]}</div>
             <div class="schedule-list" id="day-list-${i}">
                 ${materias.map((m, mIdx) => `
-                    <div class="schedule-item" style="margin-bottom:5px; display:flex; gap:5px;">
+                    <div class="schedule-item" style="display:flex; gap:3px; align-items:center;">
                         <input type="text" class="schedule-input" value="${escHtml(m)}" 
                                onchange="updateScheduleItem(${i}, ${mIdx}, this.value)" placeholder="Matéria...">
                         <button class="btn-remove-mat" onclick="removeScheduleItem(${i}, ${mIdx})">✕</button>
                     </div>
                 `).join('')}
             </div>
-            <button class="btn-add-day" onclick="addScheduleItem(${i})" 
-                    style="width:100%; border:1px dashed var(--border); padding:4px; font-size:10px; cursor:pointer;">
-                + Matéria
-            </button>
+            <button class="btn-add-day" onclick="addScheduleItem(${i})">+ Matéria</button>
         </div>`;
     }).join('');
 }
-
+        
 // Funções de suporte para a nova grade
 async function addScheduleItem(day) {
     // Se o dia estiver vazio ou não for uma lista (formato antigo), cria uma lista nova
