@@ -3135,24 +3135,31 @@ function setRevMateria(idx) {
 function renderScheduleSetup() {
     const container = document.getElementById('schedule-setup');
     if (!container) return;
-    const dias = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
-    const indices = [1, 2, 3, 4, 5, 6, 0];
+    
+    const diasNomes = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
+    const ordemSemana = [1, 2, 3, 4, 5, 6, 0]; // Começa por Segunda
 
-    container.innerHTML = indices.map(i => {
-        const materias = state.schedule[i] || [];
+    container.innerHTML = ordemSemana.map(i => {
+        // Força a conversão para lista caso o banco de dados envie texto antigo
+        let materias = state.schedule[i];
+        if (!Array.isArray(materias)) materias = []; 
+
         return `
         <div class="schedule-day">
-            <div class="schedule-day-title">${dias[i]}</div>
+            <div class="schedule-day-title">${diasNomes[i]}</div>
             <div class="schedule-list" id="day-list-${i}">
                 ${materias.map((m, mIdx) => `
-                    <div class="schedule-item">
+                    <div class="schedule-item" style="margin-bottom:5px; display:flex; gap:5px;">
                         <input type="text" class="schedule-input" value="${escHtml(m)}" 
                                onchange="updateScheduleItem(${i}, ${mIdx}, this.value)" placeholder="Matéria...">
                         <button class="btn-remove-mat" onclick="removeScheduleItem(${i}, ${mIdx})">✕</button>
                     </div>
                 `).join('')}
             </div>
-            <button class="btn-add-day" onclick="addScheduleItem(${i})">+ Adicionar Matéria</button>
+            <button class="btn-add-day" onclick="addScheduleItem(${i})" 
+                    style="width:100%; border:1px dashed var(--border); padding:4px; font-size:10px; cursor:pointer;">
+                + Matéria
+            </button>
         </div>`;
     }).join('');
 }
