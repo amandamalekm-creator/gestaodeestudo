@@ -713,12 +713,17 @@ async function loadState() {
     }
 
     // CARREGAMENTO DA GRADE
-    const planDoc = await getUserRef().collection('Dados').doc('Planejamento').get();
-    if (planDoc.exists) {
-      state.schedule = planDoc.data().schedule || {}; 
-    } else {
-      state.schedule = {}; 
-    }
+const planDoc = await getUserRef().collection('Dados').doc('Planejamento').get();
+if (planDoc.exists) {
+    let data = planDoc.data().schedule || {};
+    // Garante que cada dia da semana (0 a 6) seja uma lista []
+    [0,1,2,3,4,5,6].forEach(d => {
+        if (!Array.isArray(data[d])) data[d] = [];
+    });
+    state.schedule = data;
+} else {
+    state.schedule = { 0:[], 1:[], 2:[], 3:[], 4:[], 5:[], 6:[] };
+}
     
 // Puxar Leis (Metadata Leve)
     const leisDoc = await getUserRef().collection('Dados').doc('Leis').get();
@@ -3141,7 +3146,7 @@ function renderScheduleSetup() {
     container.innerHTML = ordemSemana.map(i => {
         // Força a conversão para lista caso o banco de dados envie texto antigo
         let materias = state.schedule[i];
-        if (!Array.isArray(materias)) materias = []; 
+        if (!Array.isArray(materias)) materias = [];
 
         return `
         <div class="schedule-day">
@@ -3165,9 +3170,14 @@ function renderScheduleSetup() {
 
 // Funções de suporte para a nova grade
 async function addScheduleItem(day) {
-    if (!state.schedule[day]) state.schedule[day] = [];
-    state.schedule[day].push("");
-    renderScheduleSetup();
+    // Se o dia estiver vazio ou não for uma lista (formato antigo), cria uma lista nova
+    if (!state.schedule[day] || !Array.isArray(state.schedule[day])) {
+        state.schedule[day] = [];
+    }
+    
+    state.schedule[day].push(""); // Adiciona o campo vazio
+    
+    renderScheduleSetup(); // Redesenha a grade na tela imediatamente
 }
 
 async function removeScheduleItem(day, idx) {
