@@ -340,11 +340,58 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
 .btn-mission { background: #C8873A; color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: pointer; margin-top: 15px; transition: 0.2s; font-family: 'DM Sans', sans-serif; }
 .btn-mission:hover { background: #e0964b; transform: translateY(-1px); }
 
-.schedule-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 20px; }
-.schedule-day { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px; }
-.schedule-day-title { font-size: 10px; font-weight: 800; text-transform: uppercase; color: var(--accent); margin-bottom: 6px; }
-.schedule-input { width: 100%; border: 1px solid var(--border); background: var(--surface); font-size: 12px; padding: 5px; border-radius: 4px; color: var(--text); outline: none; }
+/* Grade Estilo Notion (Mais larga e elegante) */
+.schedule-grid { 
+    display: grid; 
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); 
+    gap: 15px; 
+    margin-bottom: 20px; 
+}
+.schedule-day { 
+    background: var(--surface); 
+    border: 1px solid var(--border); 
+    border-radius: var(--radius); 
+    padding: 15px; 
+    box-shadow: var(--shadow);
+}
+.schedule-input { 
+    width: 100%; 
+    border: 1px solid var(--border); 
+    background: var(--surface2); 
+    font-size: 13px; 
+    padding: 8px; 
+    border-radius: 6px; 
+    color: var(--text); 
+    outline: none;
+    margin-bottom: 5px;
+}
 
+/* Container das Missões Diárias */
+.missions-wrapper {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 12px;
+    margin-bottom: 25px;
+}
+.mission-card-mini {
+    background: var(--surface);
+    border-left: 4px solid var(--text3);
+    padding: 12px 16px;
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.mission-card-mini.completed { 
+    border-left-color: var(--green); 
+    background: #f8fff9;
+}
+.mission-card-mini.priority { 
+    border-left-color: var(--accent2); 
+    background: var(--accent2-light); 
+}
+  
 .schedule-list { display: flex; flex-direction: column; gap: 5px; }
 .schedule-item { display: flex; gap: 4px; align-items: center; }
 .btn-add-day { width: 100%; padding: 4px; background: var(--surface2); border: 1px dashed var(--border); color: var(--text3); border-radius: 4px; cursor: pointer; font-size: 10px; margin-top: 5px; font-weight: 700; transition: 0.2s; }
@@ -3141,7 +3188,7 @@ function renderScheduleSetup() {
     if (!container) return;
     
     const diasNomes = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
-    const ordemSemana = [1, 2, 3, 4, 5, 6, 0]; // Começa por Segunda
+    const ordemSemana = [1, 2, 3, 4, 5, 6, 0]; // Segunda a Domingo
 
     container.innerHTML = ordemSemana.map(i => {
         // Força a conversão para lista caso o banco de dados envie texto antigo
@@ -3203,68 +3250,69 @@ async function updateSchedule(day, value) {
 
 function renderDailyMission() {
     const container = document.getElementById('daily-mission-container');
-    if (!container || !state.materias.length) return;
+    if (!container) return;
 
     const hojeNum = new Date().getDay();
     const materiasDeHoje = state.schedule[hojeNum] || [];
     
     if (materiasDeHoje.length === 0) {
-        container.innerHTML = `<div class="mission-card" style="background:var(--text3)"><div class="mission-badge">Hoje</div><div class="mission-topic">Estudo Livre</div><div class="mission-reason">Nenhuma matéria definida na grade para hoje.</div></div>`;
+        container.innerHTML = `<div class="mission-card" style="background:var(--text3); color:white; padding:20px; border-radius:12px;">Defina matérias na grade para ver suas missões de hoje.</div>`;
         return;
     }
 
-    // LÓGICA DO CONTADOR: Verifica quais matérias da grade tiveram sessões HOJE
+    let html = `<div class="section-label" style="margin-bottom:12px;">📋 Minhas Missões de Hoje</div>`;
+    html += `<div class="missions-wrapper">`;
+
     const hojeDataStr = new Date().toLocaleDateString('pt-BR');
-    const materiasConcluidas = materiasDeHoje.filter(mName => 
-        state.sessions.some(s => s.materia.toLowerCase() === mName.toLowerCase() && fmtDateShort(s.date) === hojeDataStr)
-    ).length;
-    
-    const totalMaterias = materiasDeHoje.length;
-    const porcentagem = Math.round((materiasConcluidas / totalMaterias) * 100);
 
-    // BUSCA A SUGESTÃO MAIS URGENTE
-    let melhorSugestao = null;
-    let maxScore = -1;
+    materiasDeHoje.forEach(mName => {
+        if (!mName || !mName.trim()) return;
 
-    state.materias.forEach(mat => {
-        if (!materiasDeHoje.some(p => mat.name.toLowerCase() === p.toLowerCase())) return;
+        // Verifica se houve sessão para esta matéria na data de HOJE
+        const jaEstudou = state.sessions.some(s => 
+            s.materia.toLowerCase() === mName.toLowerCase() && 
+            new Date(s.date).toLocaleDateString('pt-BR') === hojeDataStr
+        );
 
-        mat.conteudos.forEach((ct, idx) => {
-            const ctId = ct.id || ct.name || ct;
-            const agg = state.aggregates.conteudos[ctId];
-            let score = 0, motivo = "Próximo tópico do edital";
+        // Algoritmo de sugestão de tópico (Urgência)
+        let sugerido = { ct: "Estudo Geral", motivo: "Tópico inicial", score: -1 };
+        const matObj = state.materias.find(m => m.name.toLowerCase() === mName.toLowerCase());
 
-            if (!agg) { score = 100 - (idx * 2); } 
-            else {
-                const perc = agg.totalQs > 0 ? (agg.correctQs / agg.totalQs) * 100 : 100;
-                const dias = agg.lastStudied ? Math.floor((Date.now() - new Date(agg.lastStudied)) / 86400000) : 30;
-                if (perc < 75) { score = (100 - perc) + (dias * 2); motivo = perc < 60 ? "⚠️ Desempenho Crítico" : "🟠 Reforço Necessário"; } 
-                else if (dias > 15) { score = dias * 1.2; motivo = "❄️ Curva de Esquecimento"; } 
-                else { score = 10 - idx; }
-            }
+        if (matObj && matObj.conteudos) {
+            matObj.conteudos.forEach((ct, idx) => {
+                const ctId = ct.id || ct.name;
+                const agg = state.aggregates.conteudos[ctId];
+                let score = 0;
+                if (!agg) { score = 100 - idx; } 
+                else {
+                    const perc = agg.totalQs > 0 ? (agg.correctQs / agg.totalQs) * 100 : 100;
+                    const dias = agg.lastStudied ? Math.floor((Date.now() - new Date(agg.lastStudied)) / 86400000) : 30;
+                    score = (100 - perc) + (dias * 2);
+                }
+                if (score > sugerido.score && !ct.hidden) {
+                    sugerido = { ct: ct.name || ct, score: score };
+                }
+            });
+        }
 
-            if (score > maxScore && !ct.hidden) {
-                maxScore = score;
-                melhorSugestao = { mat: mat.name, ct: ct.name || ct, motivo };
-            }
-        });
+        const statusLabel = jaEstudou ? '✅ Concluído' : '⏳ Pendente';
+        const cardClass = jaEstudou ? 'completed' : (sugerido.score > 60 ? 'priority' : '');
+
+        html += `
+            <div class="mission-card-mini ${cardClass}">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <strong style="font-size:13px; color:var(--text);">${mName}</strong>
+                    <span style="font-size:10px; font-weight:800; color:${jaEstudou ? 'var(--green)' : 'var(--text3)'}">${statusLabel}</span>
+                </div>
+                <div style="font-size:12px; color:var(--text2); margin: 5px 0;">Tópico: ${sugerido.ct}</div>
+                ${!jaEstudou ? `<button class="btn btn-primary btn-sm" style="width:100%; justify-content:center; margin-top:5px;" onclick="startMission('${mName}', '${sugerido.ct}')">Estudar Agora</button>` : ''}
+            </div>
+        `;
     });
 
-    if (melhorSugestao) {
-        container.innerHTML = `
-            <div class="mission-card">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-                    <span class="mission-badge">Sua Missão</span>
-                    <span style="font-size:11px; font-weight:700;">PROGRESSO: ${materiasConcluidas}/${totalMaterias}</span>
-                </div>
-                <div class="mission-progress-bar"><div class="mission-progress-fill" style="width:${porcentagem}%"></div></div>
-                <div class="mission-topic">${melhorSugestao.mat} › ${melhorSugestao.ct}</div>
-                <div class="mission-reason"><span>🎯</span> Motivo: ${melhorSugestao.motivo}</div>
-                <button class="btn-mission" onclick="startMission('${melhorSugestao.mat}', '${melhorSugestao.ct}')">Iniciar Estudo</button>
-            </div>`;
-    }
+    html += `</div>`;
+    container.innerHTML = html;
 }
-
 function startMission(materia, conteudo) {
     const sel = document.getElementById('materia-select');
     sel.value = materia;
