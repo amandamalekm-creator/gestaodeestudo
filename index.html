@@ -344,6 +344,15 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
 .schedule-day { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px; }
 .schedule-day-title { font-size: 10px; font-weight: 800; text-transform: uppercase; color: var(--accent); margin-bottom: 6px; }
 .schedule-input { width: 100%; border: 1px solid var(--border); background: var(--surface); font-size: 12px; padding: 5px; border-radius: 4px; color: var(--text); outline: none; }
+
+.schedule-list { display: flex; flex-direction: column; gap: 5px; }
+.schedule-item { display: flex; gap: 4px; align-items: center; }
+.btn-add-day { width: 100%; padding: 4px; background: var(--surface2); border: 1px dashed var(--border); color: var(--text3); border-radius: 4px; cursor: pointer; font-size: 10px; margin-top: 5px; font-weight: 700; transition: 0.2s; }
+.btn-add-day:hover { background: var(--accent-light); color: var(--accent); border-color: var(--accent); }
+.btn-remove-mat { background: none; border: none; color: var(--text3); cursor: pointer; font-size: 12px; padding: 0 4px; }
+.btn-remove-mat:hover { color: var(--danger); }
+.mission-progress-bar { height: 4px; background: rgba(255,255,255,0.2); border-radius: 10px; margin: 8px 0; overflow: hidden; width: 100%; }
+.mission-progress-fill { height: 100%; background: #FFF; transition: width 0.4s; }
 </style>
 </head>
 <body>
@@ -623,7 +632,7 @@ let currentUser = null;
 let state = { 
   materias: [], sessions: [], leis: [], 
   aggregates: { materias: {}, conteudos: {} },
-  schedule: { 1: "", 2: "", 3: "", 4: "", 5: "", 6: "", 0: "" } // Adicione esta linha
+  schedule: { 1: [], 2: [], 3: [], 4: [], 5: [], 6: [], 0: [] }
 };
 
 let lastVisibleSession = null;
@@ -3128,11 +3137,45 @@ function renderScheduleSetup() {
     if (!container) return;
     const dias = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
     const indices = [1, 2, 3, 4, 5, 6, 0];
-    container.innerHTML = indices.map(i => `
+
+    container.innerHTML = indices.map(i => {
+        const materias = state.schedule[i] || [];
+        return `
         <div class="schedule-day">
             <div class="schedule-day-title">${dias[i]}</div>
-            <input type="text" class="schedule-input" value="${state.schedule[i] || ''}" onchange="updateSchedule(${i}, this.value)">
-        </div>`).join('');
+            <div class="schedule-list" id="day-list-${i}">
+                ${materias.map((m, mIdx) => `
+                    <div class="schedule-item">
+                        <input type="text" class="schedule-input" value="${escHtml(m)}" 
+                               onchange="updateScheduleItem(${i}, ${mIdx}, this.value)" placeholder="Matéria...">
+                        <button class="btn-remove-mat" onclick="removeScheduleItem(${i}, ${mIdx})">✕</button>
+                    </div>
+                `).join('')}
+            </div>
+            <button class="btn-add-day" onclick="addScheduleItem(${i})">+ Adicionar Matéria</button>
+        </div>`;
+    }).join('');
+}
+
+// Funções de suporte para a nova grade
+async function addScheduleItem(day) {
+    if (!state.schedule[day]) state.schedule[day] = [];
+    state.schedule[day].push("");
+    renderScheduleSetup();
+}
+
+async function removeScheduleItem(day, idx) {
+    state.schedule[day].splice(idx, 1);
+    await getUserRef().collection('Dados').doc('Planejamento').set({ schedule: state.schedule });
+    renderScheduleSetup();
+    renderDailyMission();
+}
+
+async function updateScheduleItem(day, idx, value) {
+    state.schedule[day][idx] = value;
+    await getUserRef().collection('Dados').doc('Planejamento').set({ schedule: state.schedule });
+    showToast("Grade atualizada!");
+    renderDailyMission();
 }
 
 async function updateSchedule(day, value) {
@@ -3146,40 +3189,42 @@ function renderDailyMission() {
     const container = document.getElementById('daily-mission-container');
     if (!container || !state.materias.length) return;
 
-    const hoje = new Date().getDay();
-    const materiasDeHoje = (state.schedule[hoje] || "").split(',').map(m => m.trim().toLowerCase()).filter(m => m !== "");
-
+    const hojeNum = new Date().getDay();
+    const materiasDeHoje = state.schedule[hojeNum] || [];
+    
     if (materiasDeHoje.length === 0) {
         container.innerHTML = `<div class="mission-card" style="background:var(--text3)"><div class="mission-badge">Hoje</div><div class="mission-topic">Estudo Livre</div><div class="mission-reason">Nenhuma matéria definida na grade para hoje.</div></div>`;
         return;
     }
 
+    // LÓGICA DO CONTADOR: Verifica quais matérias da grade tiveram sessões HOJE
+    const hojeDataStr = new Date().toLocaleDateString('pt-BR');
+    const materiasConcluidas = materiasDeHoje.filter(mName => 
+        state.sessions.some(s => s.materia.toLowerCase() === mName.toLowerCase() && fmtDateShort(s.date) === hojeDataStr)
+    ).length;
+    
+    const totalMaterias = materiasDeHoje.length;
+    const porcentagem = Math.round((materiasConcluidas / totalMaterias) * 100);
+
+    // BUSCA A SUGESTÃO MAIS URGENTE
     let melhorSugestao = null;
     let maxScore = -1;
 
     state.materias.forEach(mat => {
-        if (!materiasDeHoje.some(p => mat.name.toLowerCase().includes(p))) return;
+        if (!materiasDeHoje.some(p => mat.name.toLowerCase() === p.toLowerCase())) return;
 
         mat.conteudos.forEach((ct, idx) => {
             const ctId = ct.id || ct.name || ct;
             const agg = state.aggregates.conteudos[ctId];
             let score = 0, motivo = "Próximo tópico do edital";
 
-            if (!agg) {
-                score = 100 - (idx * 2);
-            } else {
+            if (!agg) { score = 100 - (idx * 2); } 
+            else {
                 const perc = agg.totalQs > 0 ? (agg.correctQs / agg.totalQs) * 100 : 100;
                 const dias = agg.lastStudied ? Math.floor((Date.now() - new Date(agg.lastStudied)) / 86400000) : 30;
-
-                if (perc < 75) {
-                    score = (100 - perc) + (dias * 2);
-                    motivo = perc < 60 ? "⚠️ Desempenho Crítico" : "🟠 Reforço Necessário";
-                } else if (dias > 15) {
-                    score = dias * 1.2;
-                    motivo = "❄️ Curva de Esquecimento";
-                } else {
-                    score = 10 - idx;
-                }
+                if (perc < 75) { score = (100 - perc) + (dias * 2); motivo = perc < 60 ? "⚠️ Desempenho Crítico" : "🟠 Reforço Necessário"; } 
+                else if (dias > 15) { score = dias * 1.2; motivo = "❄️ Curva de Esquecimento"; } 
+                else { score = 10 - idx; }
             }
 
             if (score > maxScore && !ct.hidden) {
@@ -3192,7 +3237,11 @@ function renderDailyMission() {
     if (melhorSugestao) {
         container.innerHTML = `
             <div class="mission-card">
-                <span class="mission-badge">Missão do Dia</span>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                    <span class="mission-badge">Sua Missão</span>
+                    <span style="font-size:11px; font-weight:700;">PROGRESSO: ${materiasConcluidas}/${totalMaterias}</span>
+                </div>
+                <div class="mission-progress-bar"><div class="mission-progress-fill" style="width:${porcentagem}%"></div></div>
                 <div class="mission-topic">${melhorSugestao.mat} › ${melhorSugestao.ct}</div>
                 <div class="mission-reason"><span>🎯</span> Motivo: ${melhorSugestao.motivo}</div>
                 <button class="btn-mission" onclick="startMission('${melhorSugestao.mat}', '${melhorSugestao.ct}')">Iniciar Estudo</button>
