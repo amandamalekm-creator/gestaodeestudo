@@ -341,19 +341,19 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
 .btn-mission:hover { background: #e0964b; transform: translateY(-1px); }
 
 /* Grade Estilo Notion (Mais larga e elegante) */
-/* Grade em Colunas Horizontais (Estilo Planejador Profissional) */
+/* Grade em Colunas Horizontais */
 .schedule-grid { 
     display: flex; 
     gap: 12px; 
-    overflow-x: auto; /* Permite rolar para o lado se a tela for pequena */
-    padding-bottom: 15px;
+    overflow-x: auto; 
+    padding: 10px 5px 20px 5px; 
     align-items: flex-start;
-    scrollbar-width: thin; /* Deixa a barra de rolagem discreta */
+    scrollbar-width: thin;
+    justify-content: flex-start; /* Alinha no início para facilitar a rolagem lateral */
 }
 
 .schedule-day { 
-    flex: 1; /* Faz todos os dias terem a mesma largura */
-    min-width: 200px; /* Impede que fiquem espremidos demais */
+    flex: 0 0 240px; /* Mantém a largura fixa para não cortar o nome */
     background: var(--surface); 
     border: 1px solid var(--border); 
     border-radius: var(--radius); 
@@ -361,18 +361,6 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
     box-shadow: var(--shadow);
     display: flex;
     flex-direction: column;
-    height: auto;
-}
-
-.schedule-day-title {
-    font-size: 11px;
-    font-weight: 800;
-    text-transform: uppercase;
-    color: var(--accent);
-    margin-bottom: 12px;
-    text-align: center;
-    border-bottom: 2px solid var(--accent-light);
-    padding-bottom: 5px;
 }
 
 .schedule-input { 
@@ -386,16 +374,18 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
     outline: none;
     margin-bottom: 5px;
     transition: all 0.2s ease;
+    white-space: nowrap;      
+    overflow: hidden;         
+    text-overflow: ellipsis;  
 }
 
 .schedule-input:focus { 
     border-color: var(--accent); 
     background: #FFF; 
     box-shadow: 0 0 0 2px var(--accent-light);
-
 }
 
-/* Container das Missões Diárias */
+/* Container das Missões Diárias (Cronômetro) */
 .missions-wrapper {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
