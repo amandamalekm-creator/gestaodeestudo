@@ -2062,6 +2062,7 @@ function renderEvolutionTable() {
     const nomeMap = {};
     state.materias.forEach(m => {
         if(m.conteudos) m.conteudos.forEach(c => {
+            // Tenta pegar o ID, ou o nome, ou o próprio objeto
             const id = c.id || c.name || c;
             nomeMap[id] = c.name || c;
         });
@@ -2073,7 +2074,7 @@ function renderEvolutionTable() {
         const trend = calcTrend(id);
         const evolution = agg.last5.map(item => item.perc >= 80 ? '▓' : '░').join('');
         
-        // Traduz o ID para o nome legível
+        // CORREÇÃO: Busca o nome no mapa, se não achar, usa o ID mesmo
         const nomeParaExibir = nomeMap[id] || id;
 
         return { name: nomeParaExibir, perc, evolution, trend };
@@ -2631,36 +2632,24 @@ let revCurrentMateriaIndex = 0;
 function renderRevisao() {
     const tabsEl = document.getElementById('rev-tabs');
     const listEl = document.getElementById('rev-content-list');
-    
     if (!tabsEl || !listEl) return;
 
     if (!state.materias || state.materias.length === 0) return;
 
-    // Garante que o índice não fique fora dos limites
     if (revCurrentMateriaIndex >= state.materias.length) revCurrentMateriaIndex = 0;
 
-    // 1. Desenha as abas das matérias
     tabsEl.innerHTML = state.materias.map((m, i) => `
         <button class="rev-tab-btn ${i === revCurrentMateriaIndex ? 'active' : ''}" 
-            onclick="setRevMateria(${i})"
-            draggable="true"
-            data-index="${i}"
-            ondragstart="iniciarArrastoMat(event)"
-            ondragover="permitirSoltarMat(event)"
-            ondragleave="sairAreaSoltarMat(event)"
-            ondrop="soltarMat(event)"
-            ondragend="finalizarArrastoMat(event)"
-            style="cursor: grab; user-select: none;">
+            onclick="setRevMateria(${i})">
             ${escHtml(m.name)}
         </button>
     `).join('');
 
-    // 2. Desenha os tópicos (com aproveitamento e datas)
     const mat = state.materias[revCurrentMateriaIndex];
     const conteudos = mat.conteudos || [];
 
     if (conteudos.length === 0) {
-        listEl.innerHTML = '<div style="padding:30px; text-align:center; color:var(--text3);">Nenhum conteúdo nesta matéria.</div>';
+        listEl.innerHTML = '<div style="padding:30px; text-align:center; color:var(--text3);">Nenhum tópico cadastrado.</div>';
     } else {
         listEl.innerHTML = conteudos.map((ct, ctIdx) => {
             const ctName = ct.name || ct;
@@ -2668,30 +2657,30 @@ function renderRevisao() {
             const agg = state.aggregates.conteudos[ctId];
             const isHidden = ct.hidden || false;
             
-            // Calcula desempenho e última data
-            const perc = (agg && agg.totalQs > 0) ? Math.round((agg.correctQs / agg.totalQs) * 100) + '%' : '—';
+            // Lógica de cores baseada no aproveitamento
+            const percVal = (agg && agg.totalQs > 0) ? Math.round((agg.correctQs / agg.totalQs) * 100) : null;
+            let badgeClass = 'rb-fazer'; // padrão
+            if (percVal !== null) {
+                if (percVal >= 80) badgeClass = 'rb-bom';
+                else if (percVal >= 60) badgeClass = 'rb-medio';
+                else badgeClass = 'rb-ruim';
+            }
+            const percText = percVal !== null ? percVal + '%' : '—';
             const lastDate = (agg && agg.lastStudied) ? new Date(agg.lastStudied).toLocaleDateString('pt-BR') : '—';
             
             return `
-                <div class="rev-row ${isHidden ? 'is-hidden' : ''}"
-                     draggable="true" data-ctindex="${ctIdx}" 
-                     ondragstart="iniciarArrastoCt(event)" 
-                     ondragover="permitirSoltarCt(event)" 
-                     ondragleave="sairAreaSoltarCt(event)" 
-                     ondrop="soltarCt(event)" 
-                     ondragend="finalizarArrastoCt(event)" 
-                     style="cursor: grab;">
-                    
+                <div class="rev-row ${isHidden ? 'is-hidden' : ''}">
                     <div class="rev-col-name">
                         <button class="btn-rev-toggle" onclick="toggleRevContent(${revCurrentMateriaIndex}, ${ctIdx})">👁️</button>
                         <span>${escHtml(ctName)}</span>
                     </div>
-                    <div class="rev-col-badge">${perc}</div>
+                    <div class="rev-col-badge">
+                        <span class="rev-badge ${badgeClass}">${percText}</span>
+                    </div>
                     <div class="rev-col-date">${lastDate}</div>
-                    
                     <div class="rev-row-actions">
                         <button class="btn-ghost btn-sm" onclick="editConteudoRev(${revCurrentMateriaIndex}, ${ctIdx})">✏️</button>
-                        <button class="btn-ghost btn-sm" style="color:var(--danger);" onclick="deleteConteudoRev(${revCurrentMateriaIndex}, ${ctIdx})">🗑️</button>
+                        <button class="btn-ghost btn-sm" onclick="deleteConteudoRev(${revCurrentMateriaIndex}, ${ctIdx})">🗑️</button>
                     </div>
                 </div>`;
         }).join('');
