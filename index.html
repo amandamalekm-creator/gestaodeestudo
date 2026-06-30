@@ -603,7 +603,7 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
     </div>
 
     <div class="card" style="margin-bottom:20px;">
-        <div class="card-title">Matriz de Prioridade</div>
+        <div class="card-title">Matriz de Prioridade (Desempenho vs. Tempo)</div>
         <div class="chart-container" style="height: 350px;">
             <canvas id="an-quadrant-chart"></canvas>
         </div>
@@ -3018,6 +3018,73 @@ function startMission(materia, conteudo) {
     currentMateria = materia; // Adicione esta linha para o cronômetro funcionar 100%
     startTimer();
     showToast("Bons estudos!");
+}
+
+function renderAnalytics() {
+    const filter = document.getElementById('an-materia-filter');
+    
+    // Preenche o filtro se estiver vazio
+    if (filter.options.length === 1) {
+        state.materias.forEach(m => {
+            const opt = document.createElement('option');
+            opt.value = m.name; opt.textContent = m.name;
+            filter.appendChild(opt);
+        });
+    }
+
+    const selectedMat = filter.value;
+    
+    // 1. Renderiza Gráfico
+    const canvas = document.getElementById('an-quadrant-chart');
+    if (canvas) {
+        const ctx = canvas.getContext('2d');
+        const data = Object.keys(state.aggregates.conteudos)
+            .filter(id => selectedMat === 'todos' || id.includes(selectedMat))
+            .map(id => {
+                const agg = state.aggregates.conteudos[id];
+                return { 
+                    x: agg.totalTime / 3600, 
+                    y: agg.totalQs > 0 ? (agg.correctQs / agg.totalQs) * 100 : 50, 
+                    label: id 
+                };
+            });
+
+        if (window.quadrantChart) window.quadrantChart.destroy();
+        window.quadrantChart = new Chart(ctx, {
+            type: 'scatter',
+            data: { datasets: [{ label: 'Tópicos', data: data, backgroundColor: '#2D5A3D', pointRadius: 8 }] },
+            options: { 
+                responsive: true, 
+                maintainAspectRatio: false,
+                plugins: {
+                    tooltip: { callbacks: { label: (c) => `${c.raw.label}: ${Math.round(c.raw.y)}%` } }
+                }
+            }
+        });
+    }
+
+    // 2. Renderiza Tabela de Ação
+    const tbody = document.getElementById('an-action-body');
+    if (tbody) {
+        tbody.innerHTML = Object.keys(state.aggregates.conteudos)
+            .filter(id => selectedMat === 'todos' || id.includes(selectedMat))
+            .map(id => {
+                const agg = state.aggregates.conteudos[id];
+                const perc = agg.totalQs > 0 ? Math.round((agg.correctQs / agg.totalQs) * 100) : 0;
+                const horas = agg.totalTime / 3600;
+                
+                let rec = "Manutenção";
+                if (perc < 60 && horas > 5) rec = "Trocar Método ⚠️";
+                else if (perc < 60 && horas <= 5) rec = "Prioridade Máxima 🚨";
+                else if (perc > 85) rec = "Apenas Manutenção ✅";
+                
+                return `<tr>
+                    <td><strong>${escHtml(id)}</strong></td>
+                    <td>${perc}%</td>
+                    <td><strong>${rec}</strong></td>
+                </tr>`;
+            }).join('');
+    }
 }
 </script>
 </body>
