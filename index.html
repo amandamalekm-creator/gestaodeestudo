@@ -282,12 +282,18 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
 .rev-tab-btn:hover { background: var(--surface2); color: var(--text); }
 .rev-tab-btn.active { background: var(--accent); color: white; box-shadow: var(--shadow-md); border: 1px solid var(--accent); }
 
-.rev-table-header { display: flex; padding: 12px 24px; background: var(--surface2); border-bottom: 1px solid var(--border); font-size: 11px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.05em; }
-.rev-col-name { flex: 1; display: flex; align-items: center; gap: 8px; }
-.rev-col-badge { width: 140px; display: flex; justify-content: center; }
-.rev-col-date { width: 120px; text-align: right; }
+.rev-table-header { display: flex; padding: 12px 24px; background: var(--surface2); border-bottom: 1px solid var(--border); font-size: 11px; font-weight: 600; color: var(--text3); text-transform: uppercase; }
+.rev-col-name { flex: 1; display: flex; align-items: center; }
+.rev-col-badge { width: 140px; text-align: center; display: flex; justify-content: center; }
+.rev-col-date { width: 140px; text-align: center; display: flex; justify-content: center; }
+.rev-row-actions { width: 70px; display: flex; justify-content: flex-end; }
+.rev-row { display: flex; padding: 10px 24px; border-bottom: 1px solid var(--border); align-items: center; }
 
-.rev-row { display: flex; padding: 14px 24px; border-bottom: 1px solid var(--border); align-items: center; font-size: 13.5px; transition: background 0.15s; }
+/* Ajuste da linha de dados */
+.rev-row { display: flex; padding: 10px 24px; border-bottom: 1px solid var(--border); align-items: center; font-size: 13.5px; }
+/* Garante que o badge e a data dentro da linha tenham o mesmo alinhamento */
+.rev-row .rev-col-badge { width: 140px; display: flex; justify-content: center; }
+.rev-row .rev-col-date { width: 140px; display: flex; justify-content: center; }
 .rev-row:hover { background: #faf9f7; }
 .rev-row:last-child { border-bottom: none; }
 
@@ -2627,17 +2633,20 @@ async function init(){
 // ══════════════════════════════════════════════════
 // Mova a declaração para o topo do seu script, logo abaixo de "let currentUser = null;"
 let revCurrentMateriaIndex = 0;
+let indexArrastadoCt = null;
 
 // O restante da função renderRevisao deve ficar assim (garantindo que o índice seja acessível):
 function renderRevisao() {
     const tabsEl = document.getElementById('rev-tabs');
     const listEl = document.getElementById('rev-content-list');
+    
     if (!tabsEl || !listEl) return;
 
     if (!state.materias || state.materias.length === 0) return;
 
     if (revCurrentMateriaIndex >= state.materias.length) revCurrentMateriaIndex = 0;
 
+    // Desenha abas
     tabsEl.innerHTML = state.materias.map((m, i) => `
         <button class="rev-tab-btn ${i === revCurrentMateriaIndex ? 'active' : ''}" 
             onclick="setRevMateria(${i})">
@@ -2645,47 +2654,39 @@ function renderRevisao() {
         </button>
     `).join('');
 
+    // Desenha a tabela com alinhamento
     const mat = state.materias[revCurrentMateriaIndex];
     const conteudos = mat.conteudos || [];
 
     if (conteudos.length === 0) {
-        listEl.innerHTML = '<div style="padding:30px; text-align:center; color:var(--text3);">Nenhum tópico cadastrado.</div>';
+        listEl.innerHTML = '<div style="padding:20px; text-align:center;">Nenhum tópico cadastrado.</div>';
     } else {
         listEl.innerHTML = conteudos.map((ct, ctIdx) => {
             const ctName = ct.name || ct;
             const ctId = ct.id || ct.name || ct;
             const agg = state.aggregates.conteudos[ctId];
-            const isHidden = ct.hidden || false;
             
-            // Lógica de cores baseada no aproveitamento
             const percVal = (agg && agg.totalQs > 0) ? Math.round((agg.correctQs / agg.totalQs) * 100) : null;
-            let badgeClass = 'rb-fazer'; // padrão
-            if (percVal !== null) {
-                if (percVal >= 80) badgeClass = 'rb-bom';
-                else if (percVal >= 60) badgeClass = 'rb-medio';
-                else badgeClass = 'rb-ruim';
-            }
-            const percText = percVal !== null ? percVal + '%' : '—';
             const lastDate = (agg && agg.lastStudied) ? new Date(agg.lastStudied).toLocaleDateString('pt-BR') : '—';
-            
+            const badgeHtml = percVal !== null ? `<span class="rev-badge ${percVal >= 80 ? 'rb-bom' : percVal >= 60 ? 'rb-medio' : 'rb-ruim'}">${percVal}%</span>` : '—';
+
             return `
-                <div class="rev-row ${isHidden ? 'is-hidden' : ''}">
+                <div class="rev-row" draggable="true" data-ctindex="${ctIdx}" ondragstart="iniciarArrastoCt(event)" ondragover="permitirSoltarCt(event)" ondragleave="sairAreaSoltarCt(event)" ondrop="soltarCt(event)" ondragend="finalizarArrastoCt(event)">
                     <div class="rev-col-name">
                         <button class="btn-rev-toggle" onclick="toggleRevContent(${revCurrentMateriaIndex}, ${ctIdx})">👁️</button>
                         <span>${escHtml(ctName)}</span>
                     </div>
-                    <div class="rev-col-badge">
-                        <span class="rev-badge ${badgeClass}">${percText}</span>
-                    </div>
+                    <div class="rev-col-badge">${badgeHtml}</div>
                     <div class="rev-col-date">${lastDate}</div>
                     <div class="rev-row-actions">
                         <button class="btn-ghost btn-sm" onclick="editConteudoRev(${revCurrentMateriaIndex}, ${ctIdx})">✏️</button>
-                        <button class="btn-ghost btn-sm" onclick="deleteConteudoRev(${revCurrentMateriaIndex}, ${ctIdx})">🗑️</button>
+                        <button class="btn-ghost btn-sm" style="color:var(--danger);" onclick="deleteConteudoRev(${revCurrentMateriaIndex}, ${ctIdx})">🗑️</button>
                     </div>
                 </div>`;
         }).join('');
     }
 }
+  
 function iniciarArrastoCt(e) {
   indexArrastadoCt = parseInt(e.currentTarget.getAttribute('data-ctindex'));
   e.currentTarget.classList.add('is-dragging');
