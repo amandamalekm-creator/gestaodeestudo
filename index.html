@@ -589,38 +589,60 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
 
 <section class="page" id="page-analytics">
     <h1 class="page-title">Painel de Performance</h1>
-    <p class="page-sub">Identifique onde investir energia hoje.</p>
+    <p class="page-sub">Identifique tendências e saiba exatamente o que revisar hoje.</p>
 
+    <!-- Filtros Inteligentes -->
     <div class="filter-bar">
         <div class="filter-group">
-            <label class="filter-label">Filtrar Matéria</label>
+            <label class="filter-label">1. Filtrar Matéria</label>
             <div class="select-wrap">
                 <select id="an-materia-filter" onchange="renderAnalytics()">
                     <option value="todos">Todas as Matérias</option>
                 </select>
             </div>
         </div>
+        <div class="filter-group">
+            <label class="filter-label">2. Filtrar Conteúdo</label>
+            <div class="select-wrap">
+                <select id="an-conteudo-filter" onchange="renderAnalytics()">
+                    <option value="todos">Todos os Conteúdos</option>
+                </select>
+            </div>
+        </div>
     </div>
 
+    <!-- Gráfico 1: Evolução Temporal -->
     <div class="card" style="margin-bottom:20px;">
-        <div class="card-title">Matriz de Prioridade (Desempenho vs. Tempo)</div>
+        <div class="card-title">📈 Curva de Aprendizado (Evolução das Últimas 5 Sessões)</div>
+        <div class="chart-container" style="height: 300px;">
+            <canvas id="an-evolution-chart"></canvas>
+        </div>
+    </div>
+
+    <!-- Gráfico 2: Matriz de Bolhas -->
+    <div class="card" style="margin-bottom:20px;">
+        <div class="card-title">🎯 Matriz de Foco (Aproveitamento vs. Horas Estudadas)</div>
         <div class="chart-container" style="height: 350px;">
             <canvas id="an-quadrant-chart"></canvas>
         </div>
     </div>
 
+    <!-- Tabela de Ação Automática -->
     <div class="card">
-        <div class="card-title">Tabela de Ação</div>
-        <table class="sessions-table">
-            <thead>
-                <tr>
-                    <th>Tópico</th>
-                    <th>Aproveit.</th>
-                    <th>Recomendação</th>
-                </tr>
-            </thead>
-            <tbody id="an-action-body"></tbody>
-        </table>
+        <div class="card-title">📋 Tabela de Ação e Diagnóstico</div>
+        <div style="overflow-x: auto;">
+            <table class="sessions-table">
+                <thead>
+                    <tr>
+                        <th>Disciplina / Tópico</th>
+                        <th>Aproveit.</th>
+                        <th>Tendência</th>
+                        <th>Recomendação Algorítmica</th>
+                    </tr>
+                </thead>
+                <tbody id="an-action-body"></tbody>
+            </table>
+        </div>
     </div>
 </section>
  <section class="page" id="page-leis">
@@ -1862,62 +1884,206 @@ function renderDashboard() {
 }
 
 function renderAnalytics() {
-    const filter = document.getElementById('an-materia-filter');
-    // Preenche o seletor apenas se estiver vazio
-    if (filter.options.length === 1) {
+    const matFilter = document.getElementById('an-materia-filter');
+    const ctFilter = document.getElementById('an-conteudo-filter');
+
+    // 1. Popula Filtro de Matéria (só faz isso na primeira vez)
+    if (matFilter.options.length === 1) {
         state.materias.forEach(m => {
             const opt = document.createElement('option');
             opt.value = m.name; opt.textContent = m.name;
-            filter.appendChild(opt);
+            matFilter.appendChild(opt);
         });
     }
 
-    const selectedMat = filter.value;
+    const selectedMat = matFilter.value;
+
+    // 2. Mapeamento de Nomes e Sistema de Cores por Matéria
+    const nomeMap = {};
+    const materiaColors = {};
+    // Paleta de cores vibrantes e modernas para facilitar a leitura no gráfico
+    const colorPalette = ['#2D5A3D', '#C8873A', '#3A7DC8', '#8E44AD', '#E74C3C', '#16A085', '#D35400', '#2C3E50'];
     
-    // 1. Renderiza Gráfico
-    const canvas = document.getElementById('an-quadrant-chart');
-    if (canvas) {
-        const ctx = canvas.getContext('2d');
-        const data = Object.keys(state.aggregates.conteudos)
-            .filter(id => selectedMat === 'todos' || id.includes(selectedMat))
-            .map(id => {
-                const agg = state.aggregates.conteudos[id];
-                return { 
-                    x: agg.totalTime / 3600, 
-                    y: agg.totalQs > 0 ? (agg.correctQs / agg.totalQs) * 100 : 50, 
-                    label: id 
-                };
+    state.materias.forEach((m, idx) => {
+        materiaColors[m.name] = colorPalette[idx % colorPalette.length];
+        if (m.conteudos) {
+            m.conteudos.forEach(c => {
+                const id = c.id || c.name || c;
+                nomeMap[id] = { name: c.name || c, materia: m.name };
             });
+        }
+    });
+
+    // 3. Popula Filtro de Conteúdo baseado na Matéria selecionada
+    const currentCt = ctFilter.value;
+    ctFilter.innerHTML = '<option value="todos">Todos os Conteúdos</option>';
+    Object.keys(nomeMap).forEach(id => {
+        const info = nomeMap[id];
+        if (selectedMat === 'todos' || info.materia === selectedMat) {
+            const opt = document.createElement('option');
+            opt.value = id; opt.textContent = info.name;
+            if (id === currentCt) opt.selected = true;
+            ctFilter.appendChild(opt);
+        }
+    });
+    
+    const selectedCt = ctFilter.value;
+
+    // 4. PREPARAÇÃO DOS DADOS FILTRADOS
+    const filteredIds = Object.keys(state.aggregates.conteudos).filter(id => {
+        const info = nomeMap[id];
+        if (!info) return false;
+        const matchMat = selectedMat === 'todos' || info.materia === selectedMat;
+        const matchCt = selectedCt === 'todos' || id === selectedCt;
+        return matchMat && matchCt;
+    });
+
+    // ==========================================
+    // GRÁFICO 1: EVOLUÇÃO (LINHAS)
+    // ==========================================
+    const canvasEvol = document.getElementById('an-evolution-chart');
+    if (canvasEvol) {
+        const datasetsEvol = filteredIds.map(id => {
+            const agg = state.aggregates.conteudos[id];
+            const info = nomeMap[id];
+            
+            // Constrói os pontos usando o histórico de revisões (Decay/Evolução)
+            const dataPoints = agg.last5.map((entry, index) => ({
+                x: `Sessão ${index + 1}`,
+                y: Math.round(entry.perc * 100),
+                dataOriginal: new Date(entry.date).toLocaleDateString('pt-BR')
+            }));
+
+            return {
+                label: info.name,
+                data: dataPoints,
+                borderColor: materiaColors[info.materia],
+                backgroundColor: materiaColors[info.materia],
+                borderWidth: 3,
+                pointRadius: 5,
+                pointHoverRadius: 8,
+                tension: 0.3 // Deixa a linha suave
+            };
+        }).filter(ds => ds.data.length > 0); // Oculta quem não tem questões resolvidas
+
+        if (window.evolutionChart) window.evolutionChart.destroy();
+        window.evolutionChart = new Chart(canvasEvol.getContext('2d'), {
+            type: 'line',
+            data: { datasets: datasetsEvol },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: { min: 0, max: 100, title: { display: true, text: 'Aproveitamento (%)' } },
+                    x: { type: 'category' }
+                },
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            label: (c) => `${c.dataset.label}: ${c.raw.y}% (Estudado em: ${c.raw.dataOriginal})`
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    // ==========================================
+    // GRÁFICO 2: MATRIZ DE PRIORIDADE (BOLHAS COM CORES)
+    // ==========================================
+    const canvasQuad = document.getElementById('an-quadrant-chart');
+    if (canvasQuad) {
+        const dataQuad = filteredIds.map(id => {
+            const agg = state.aggregates.conteudos[id];
+            const info = nomeMap[id];
+            return { 
+                x: agg.totalTime / 3600, 
+                y: agg.totalQs > 0 ? (agg.correctQs / agg.totalQs) * 100 : 50, 
+                label: info.name,
+                materia: info.materia
+            };
+        });
 
         if (window.quadrantChart) window.quadrantChart.destroy();
-        window.quadrantChart = new Chart(ctx, {
+        window.quadrantChart = new Chart(canvasQuad.getContext('2d'), {
             type: 'scatter',
-            data: { datasets: [{ label: 'Tópicos', data: data, backgroundColor: '#2D5A3D' }] },
-            options: { responsive: true, maintainAspectRatio: false }
+            data: { 
+                datasets: [{ 
+                    label: 'Tópicos', 
+                    data: dataQuad, 
+                    // Aplica a cor da matéria na bolinha do tópico
+                    pointBackgroundColor: dataQuad.map(d => materiaColors[d.materia]),
+                    pointBorderColor: '#FFF',
+                    pointBorderWidth: 1.5,
+                    pointRadius: 8,
+                    pointHoverRadius: 12
+                }] 
+            },
+            options: { 
+                responsive: true, 
+                maintainAspectRatio: false,
+                scales: {
+                    x: { title: { display: true, text: 'Horas Totais Estudadas' } },
+                    y: { min: 0, max: 100, title: { display: true, text: 'Aproveitamento Médio (%)' } }
+                },
+                plugins: {
+                    tooltip: { 
+                        callbacks: { 
+                            // Nome legível na bolinha ao passar o mouse
+                            label: (c) => `${c.raw.label}: ${Math.round(c.raw.y)}% em ${c.raw.x.toFixed(1)}h` 
+                        } 
+                    }
+                }
+            }
         });
     }
 
-    // 2. Renderiza Tabela de Ação
+    // ==========================================
+    // TABELA 3: AÇÃO E DIAGNÓSTICO
+    // ==========================================
     const tbody = document.getElementById('an-action-body');
     if (tbody) {
-        tbody.innerHTML = Object.keys(state.aggregates.conteudos)
-            .filter(id => selectedMat === 'todos' || id.includes(selectedMat))
-            .map(id => {
-                const agg = state.aggregates.conteudos[id];
-                const perc = agg.totalQs > 0 ? Math.round((agg.correctQs / agg.totalQs) * 100) : 0;
-                const horas = agg.totalTime / 3600;
-                
-                let rec = "Manutenção";
-                if (perc < 60 && horas > 5) rec = "Trocar Método ⚠️";
-                else if (perc < 60 && horas <= 5) rec = "Prioridade Máxima 🚨";
-                else if (perc > 85) rec = "Apenas Manutenção ✅";
-                
-                return `<tr>
-                    <td><strong>${escHtml(id)}</strong></td>
-                    <td>${perc}%</td>
-                    <td><strong>${rec}</strong></td>
-                </tr>`;
-            }).join('');
+        tbody.innerHTML = filteredIds.map(id => {
+            const agg = state.aggregates.conteudos[id];
+            const info = nomeMap[id];
+            const perc = agg.totalQs > 0 ? Math.round((agg.correctQs / agg.totalQs) * 100) : 0;
+            const horas = agg.totalTime / 3600;
+            
+            // Sistema de Diagnóstico Automático
+            let rec = "<span style='color:var(--text2)'>Manutenção Constante 📘</span>";
+            let rowBg = "";
+            if (perc < 60 && horas > 5) {
+                rec = "<span style='color:var(--danger)'>Revisar Teoria (Estudou muito, errou muito) ⚠️</span>";
+                rowBg = "background: var(--danger-light);";
+            }
+            else if (perc < 60 && horas <= 5) {
+                rec = "<span style='color:var(--warn)'>Prioridade (Iniciante no tema) 🚨</span>";
+                rowBg = "background: var(--warn-light);";
+            }
+            else if (perc > 85) {
+                rec = "<span style='color:var(--green)'>Domínio (Faça só revisões rápidas) ✅</span>";
+                rowBg = "background: #e8f5ec;";
+            }
+
+            // Indicador de Tendência (Trend) usando a sua função existente
+            const trend = calcTrend(id);
+            const trendIco = trend === '↑' ? '<span style="color:var(--green); font-weight:bold;">📈 Subindo</span>' : 
+                             (trend === '↓' ? '<span style="color:var(--danger); font-weight:bold;">📉 Caindo</span>' : '<span style="color:var(--text3); font-weight:bold;">→ Estável</span>');
+            
+            return `<tr style="${rowBg}">
+                <td>
+                    <div style="font-size:10px; color:var(--text3); text-transform:uppercase; font-weight:bold; margin-bottom: 2px;">
+                        ${escHtml(info.materia)}
+                    </div>
+                    <strong style="font-size:13px;">${escHtml(info.name)}</strong>
+                </td>
+                <td>
+                    <span class="badge ${perc >= 80 ? 'badge-green' : (perc >= 60 ? 'badge-warn' : 'badge-danger')}">${perc}%</span>
+                </td>
+                <td>${trendIco}</td>
+                <td>${rec}</td>
+            </tr>`;
+        }).join('');
     }
 }
   
