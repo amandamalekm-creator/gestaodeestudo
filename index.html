@@ -431,6 +431,10 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
 .schedule-grid::-webkit-scrollbar { height: 6px; }
 .schedule-grid::-webkit-scrollbar-track { background: transparent; }
 .schedule-grid::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+/* Botões invisíveis da tabela de revisão */
+.rev-row-actions { display: none; gap: 4px; flex-shrink: 0; }
+.rev-row:hover .rev-row-actions { display: flex; }
+.rev-row.is-dragging { opacity: 0.4; background: var(--surface2); }
 </style>
 </head>
 <body>
@@ -450,7 +454,6 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
     <button class="nav-btn active" onclick="showPage('cronometro')"><span class="ico">⏱</span><span>Cronômetro</span></button>
     <button class="nav-btn" onclick="showPage('manual')"><span class="ico">✏️</span><span>Lançamento</span></button>
     <button class="nav-btn" onclick="showPage('dashboard')"><span class="ico">📊</span><span>Dashboard</span></button>
-    <button class="nav-btn" onclick="showPage('materias')"><span class="ico">📚</span><span>Matérias</span></button>
     <button class="nav-btn" onclick="showPage('analytics')"><span class="ico">📈</span><span>Analytics</span></button>
     <button class="nav-btn" onclick="showPage('leis')"><span class="ico">📖</span><span>Lei Seca</span></button>
     <button class="nav-btn" onclick="showPage('revisao')"><span class="ico">🗓️</span><span>Revisão</span></button>
@@ -557,15 +560,7 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
   <div class="card"><div class="card-title">Histórico de Sessões</div><div id="sessions-history" style="overflow-x:auto;"></div></div>
 </section>
 
-<section class="page" id="page-materias">
-  <h1 class="page-title">Matérias & Conteúdos</h1>
-  <p class="page-sub">Gerencie matérias e cadastre os conteúdos de cada uma.</p>
-  <div class="grid-2" style="gap:20px;margin-bottom:24px;">
-    <div class="card"><div class="card-title">Nova Matéria</div><div class="inline-form"><input type="text" id="new-materia-input" placeholder="Ex: Português..." maxlength="60"><button class="btn btn-primary" onclick="addMateria()" style="flex-shrink:0;">+ Adicionar</button></div></div>
-    <div class="card"><div class="card-title">Dica</div><p style="color:var(--text2);font-size:13px;line-height:1.7;">Clique em uma matéria para expandir e cadastrar seus conteúdos.</p></div>
-  </div>
-  <div class="card"><div class="card-title">Matérias Cadastradas</div><div class="materia-list" id="materia-list"></div></div>
-</section>
+
 
 <section class="page" id="page-analytics">
   <h1 class="page-title">Analytics</h1>
@@ -610,28 +605,39 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
     </div>
 </section>
   <section class="page" id="page-revisao">
-  <h1 class="page-title">Revisão</h1>
-  <p class="page-sub">Edital verticalizado com mapa de calor de desempenho e última data de contato.</p>
+    <h1 class="page-title">Edital & Revisão</h1>
+    <p class="page-sub">Gerencie seu edital, arraste tópicos para reordenar e acompanhe seu desempenho.</p>
 
-<!-- Abas das Matérias com Setas -->
-  <div style="display: flex; align-items: center; border-bottom: 1px solid var(--border); margin-bottom: 16px; padding-bottom: 8px; gap: 4px;">
-    <button class="btn-ghost" style="padding: 4px 12px; border: none; font-size: 22px; cursor: pointer; color: var(--text3);" onclick="document.getElementById('rev-tabs').scrollBy({left: -250, behavior: 'smooth'})">‹</button>
-    <div class="rev-tabs" id="rev-tabs" style="margin-bottom: 0; border-bottom: none; padding-bottom: 0; flex: 1; scroll-behavior: smooth;"></div>
-    <button class="btn-ghost" style="padding: 4px 12px; border: none; font-size: 22px; cursor: pointer; color: var(--text3);" onclick="document.getElementById('rev-tabs').scrollBy({left: 250, behavior: 'smooth'})">›</button>
-  </div>
+    <div style="display:flex; justify-content:space-between; margin-bottom: 12px; align-items:center; flex-wrap: wrap; gap: 10px;">
+       <div class="inline-form" style="max-width: 320px;">
+          <input type="text" id="new-materia-rev-input" placeholder="Nome da nova matéria..." maxlength="60" onkeydown="if(event.key==='Enter')addMateriaRev()">
+          <button class="btn btn-primary btn-sm" onclick="addMateriaRev()">+ Criar Matéria</button>
+       </div>
+       <button class="btn btn-ghost btn-sm" style="color:var(--danger); border-color:transparent;" onclick="deleteMateriaRev()">🗑️ Excluir Matéria Atual</button>
+    </div>
 
-  <!-- Tabela de Conteúdos Estilo Notion -->
-  <div class="card" style="padding: 0; overflow: hidden; border-radius: 8px;">
-    <div class="rev-table-header">
-      <div class="rev-col-name">Tópico do Edital</div>
-      <div class="rev-col-badge">Desempenho</div>
-      <div class="rev-col-date">Último Estudo</div>
+    <div style="display: flex; align-items: center; border-bottom: 1px solid var(--border); margin-bottom: 16px; padding-bottom: 8px; gap: 4px;">
+      <button class="btn-ghost" style="padding: 4px 12px; border: none; font-size: 22px; cursor: pointer; color: var(--text3);" onclick="document.getElementById('rev-tabs').scrollBy({left: -250, behavior: 'smooth'})">‹</button>
+      <div class="rev-tabs" id="rev-tabs" style="margin-bottom: 0; border-bottom: none; padding-bottom: 0; flex: 1; scroll-behavior: smooth;"></div>
+      <button class="btn-ghost" style="padding: 4px 12px; border: none; font-size: 22px; cursor: pointer; color: var(--text3);" onclick="document.getElementById('rev-tabs').scrollBy({left: 250, behavior: 'smooth'})">›</button>
     </div>
-    <div id="rev-content-list" style="max-height: 60vh; overflow-y: auto;">
-       <!-- Linhas geradas via JavaScript -->
+
+    <div class="card" style="padding: 0; overflow: hidden; border-radius: 8px;">
+      <div class="rev-table-header">
+        <div class="rev-col-name">Tópico do Edital</div>
+        <div class="rev-col-badge">Desempenho</div>
+        <div class="rev-col-date">Último Estudo</div>
+        <div style="width: 60px;"></div> </div>
+      <div id="rev-content-list" style="max-height: 55vh; overflow-y: auto; scrollbar-width: thin;">
+         </div>
+      
+      <div style="padding: 12px 24px; background: var(--surface2); border-top: 1px solid var(--border); display: flex; gap: 10px; align-items: center;">
+          <span style="color:var(--text3); font-size:16px;">↳</span>
+          <input type="text" id="new-ct-rev-input" placeholder="Adicionar novo tópico no final do edital..." style="flex:1; padding: 9px 12px; font-size:13px;" onkeydown="if(event.key==='Enter')addConteudoRev()">
+          <button class="btn btn-secondary btn-sm" onclick="addConteudoRev()">+ Inserir Tópico</button>
+      </div>
     </div>
-  </div>
-</section>
+  </section>
 </main>
 </div>
 
@@ -1069,165 +1075,6 @@ function showPage(name) {
 //  MATÉRIAS
 // ══════════════════════════════════════════════════
 function getMateriaObj(name) { return state.materias.find(m => m.name === name); }
-
-function renderMaterias() {
-  const list = document.getElementById('materia-list');
-  if (!state.materias.length) {
-    list.innerHTML = '<div class="empty"><div class="ico">📚</div><p>Nenhuma matéria cadastrada.</p></div>'; return;
-  }
-  list.innerHTML = state.materias.map((m, i) => {
-    const c = m.conteudos || [];
-    
-    const rows = c.length
-      ? c.map((ct, j) => {
-          const ctName = ct.name || ct;
-          const ctId = ct.id || ct.name || ct;
-          
-          const agg = state.aggregates.conteudos[ctId];
-          let secs = agg ? agg.totalTime : 0;
-          let tQ = agg ? agg.totalQs : 0;
-          let cQ = agg ? agg.correctQs : 0;
-
-          const perc = tQ>0 ? Math.round(cQ/tQ*100) : null;
-          return `<div class="conteudo-row">
-            <div class="conteudo-row-name">${escHtml(ctName)}</div>
-            <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text3);">${formatTime(secs)}</span>
-            ${perc!==null ? aprovBadge(perc) : '<span style="color:var(--text3);font-size:11px;">—</span>'}
-            <div style="display:flex; gap:2px; margin-right: 4px;">
-            <button class="conteudo-del" style="padding:2px 6px; font-size: 10px;" onclick="editConteudo(${i},${j})" title="Editar Nome">✏️</button>
-            <button class="conteudo-del" style="padding:2px 6px; font-size: 10px; ${j===0 ? 'opacity:0.2; cursor:default;' : ''}" onclick="moveConteudo(${i},${j},-1)" title="Subir">▲</button>
-            <button class="conteudo-del" style="padding:2px 6px; font-size: 10px; ${j===c.length-1 ? 'opacity:0.2; cursor:default;' : ''}" onclick="moveConteudo(${i},${j},1)" title="Descer">▼</button>
-          </div>
-            <button class="conteudo-del" onclick="deleteConteudo(${i},${j})" title="Apagar">✕</button>
-          </div>`;
-        }).join('')
-      : '<div style="font-size:12px;color:var(--text3);padding:10px 0;">Nenhum conteúdo cadastrado.</div>';
-
-    return `<div class="materia-item">
-      <div class="materia-header" onclick="toggleMateria(${i})">
-        <div class="materia-dot"></div>
-        <div class="materia-name-text">${escHtml(m.name)}</div>
-        <div class="materia-meta">${c.length} conteúdo${c.length!==1?'s':''}</div>
-        <span class="materia-toggle" id="mt-${i}">▼</span>
-        <button class="materia-del" onclick="event.stopPropagation();deleteMateria(${i})">✕</button>
-      </div>
-      <div class="conteudos-panel" id="cp-${i}">
-        <div class="conteudo-list">${rows}</div>
-        <div class="conteudo-add">
-          <input type="text" id="ci-${i}" placeholder="Nome do conteúdo..." maxlength="80" onkeydown="if(event.key==='Enter')addConteudo(${i})">
-          <button class="btn btn-primary" style="flex-shrink:0;padding:10px 14px;" onclick="addConteudo(${i})">+</button>
-        </div>
-      </div>
-    </div>`;
-  }).join('');
-}
-
-function toggleMateria(i) {
-  const p=document.getElementById('cp-'+i), t=document.getElementById('mt-'+i);
-  p.classList.toggle('open'); t.classList.toggle('open', p.classList.contains('open'));
-}
-
-async function addMateria() {
-  const input = document.getElementById('new-materia-input');
-  const name = input.value.trim();
-  if (!name) { showToast('Digite o nome da matéria.'); return; }
-  if (state.materias.find(m=>m.name===name)) { showToast('Matéria já cadastrada.'); return; }
-  state.materias.push({ name, conteudos:[] });
-  await saveMateriasDB(); input.value='';
-  renderMaterias(); refreshAllSelects();
-  showToast('Matéria adicionada!');
-}
-
-async function deleteMateria(i) {
-  if (!confirm(`Remover "${state.materias[i].name}"?`)) return;
-  state.materias.splice(i,1);
-  await saveMateriasDB(); renderMaterias(); refreshAllSelects();
-  showToast('Matéria removida.');
-}
-
-async function addConteudo(mi) {
-  const input=document.getElementById('ci-'+mi), name=input.value.trim();
-  if (!name) { showToast('Digite o nome do conteúdo.'); return; }
-  const mat=state.materias[mi];
-  if (!mat.conteudos) mat.conteudos=[];
-  
-  if (mat.conteudos.find(c => (c.name || c) === name)) { showToast('Conteúdo já cadastrado.'); return; }
-  
-  mat.conteudos.push({ id: crypto.randomUUID(), name });
-  
-  await saveMateriasDB(); input.value='';
-  renderMaterias();
-  const p=document.getElementById('cp-'+mi), t=document.getElementById('mt-'+mi);
-  if(p){p.classList.add('open');t.classList.add('open');}
-  refreshAllSelects();
-  showToast('Conteúdo adicionado!');
-}
-
-async function deleteConteudo(mi,ci) {
-  if (!confirm(`Tem certeza que deseja apagar este conteúdo?`)) return;
-  state.materias[mi].conteudos.splice(ci,1);
-  await saveMateriasDB(); renderMaterias();
-  const p=document.getElementById('cp-'+mi), t=document.getElementById('mt-'+mi);
-  if(p){p.classList.add('open');t.classList.add('open');}
-  refreshAllSelects();
-  showToast('Conteúdo removido.');
-}
-
-async function editConteudo(mi, ci) {
-  const mat = state.materias[mi];
-  const ct = mat.conteudos[ci];
-  const nomeAtual = ct.name || ct;
-  
-  const novoNome = prompt("Editar nome do conteúdo:", nomeAtual);
-  
-  if (novoNome !== null && novoNome.trim() !== "" && novoNome.trim() !== nomeAtual) {
-    // Preservação de vínculo: mantém o nome antigo como ID interno
-    if (typeof mat.conteudos[ci] === 'string') {
-      mat.conteudos[ci] = { 
-        id: nomeAtual, 
-        name: novoNome.trim() 
-      };
-    } else {
-      mat.conteudos[ci].name = novoNome.trim();
-      if (!mat.conteudos[ci].id) mat.conteudos[ci].id = nomeAtual;
-    }
-
-    await saveMateriasDB();
-    renderMaterias();
-    
-    // Sincronização em tempo real entre as abas
-    if (typeof renderRevisao === 'function') renderRevisao();
-    if (typeof renderAnalytics === 'function') renderAnalytics();
-    if (typeof anPopulateMateriaFilter === 'function') anPopulateMateriaFilter();
-    
-    refreshAllSelects(); 
-    if (pipWindow) openPiP();
-
-    showToast("Conteúdo atualizado!");
-  }
-}
-
-  async function moveConteudo(mi, ci, dir) {
-  const conteudos = state.materias[mi].conteudos;
-  
-  // Impede de subir o primeiro ou descer o último
-  if ((dir === -1 && ci === 0) || (dir === 1 && ci === conteudos.length - 1)) return;
-
-  // Troca os itens de posição na lista
-  const temp = conteudos[ci];
-  conteudos[ci] = conteudos[ci + dir];
-  conteudos[ci + dir] = temp;
-
-  // Salva na nuvem e recarrega a tela
-  await saveMateriasDB();
-  renderMaterias();
-  
-  // Mantém a pastinha da matéria aberta para você ver o resultado
-  const p = document.getElementById('cp-'+mi), t = document.getElementById('mt-'+mi);
-  if(p){ p.classList.add('open'); t.classList.add('open'); }
-}
-
-document.getElementById('new-materia-input').addEventListener('keydown',e=>{if(e.key==='Enter')addMateria();});
 
 function populateMateriaSelect() {
   const sel=document.getElementById('materia-select'), cur=sel.value;
@@ -3150,7 +2997,6 @@ function finalizarArrastoMat(e) {
   
 // 12. SUBSCRIBE REATIVIDADE NO FINAL
 subscribe(renderDashboard);
-subscribe(renderMaterias);
 subscribe(anRender);
 subscribe(renderRevisao);
 
@@ -3165,8 +3011,9 @@ async function init(){
   renderCronometroPage();
 }
 
+
 // ══════════════════════════════════════════════════
-//  MÓDULO DE REVISÃO (EDITAL VERTICALIZADO)
+//  MÓDULO DE REVISÃO E GESTÃO DO EDITAL
 // ══════════════════════════════════════════════════
 let revCurrentMateriaIndex = 0;
 
@@ -3183,7 +3030,7 @@ function renderRevisao() {
 
   if (revCurrentMateriaIndex >= state.materias.length) revCurrentMateriaIndex = 0;
 
- tabsEl.innerHTML = state.materias.map((m, i) => `
+  tabsEl.innerHTML = state.materias.map((m, i) => `
     <button class="rev-tab-btn ${i === revCurrentMateriaIndex ? 'active' : ''}" 
       onclick="setRevMateria(${i})"
       draggable="true"
@@ -3203,7 +3050,7 @@ function renderRevisao() {
   const conteudos = mat.conteudos || [];
 
   if (!conteudos.length) {
-    listEl.innerHTML = '<div style="padding:30px; text-align:center; color:var(--text3);">Nenhum conteúdo cadastrado.</div>';
+    listEl.innerHTML = '<div style="padding:30px; text-align:center; color:var(--text3);">Nenhum conteúdo cadastrado nesta matéria. Use o campo abaixo para adicionar.</div>';
     return;
   }
 
@@ -3217,11 +3064,9 @@ function renderRevisao() {
     let trend = "", decayText = "", decayClass = "decay-ok";
 
     if (agg) {
-      // 1. TENDÊNCIA (TREND INDICATORS)
       if (agg.totalQs > 0) {
         const perc = Math.round((agg.correctQs / agg.totalQs) * 100);
         badgeValue = perc + '%';
-        // Integração direta com sua função calcTrend existente
         trend = `<span class="rev-trend">${calcTrend(ctId)}</span>`; 
 
         if (perc >= 80) { badgeClass = 'rb-bom'; dotColor = '#27AE60'; }
@@ -3231,47 +3076,189 @@ function renderRevisao() {
         badgeClass = 'rb-teoria'; badgeValue = 'Teoria'; dotColor = 'var(--accent)';
       }
 
-      // 2. CURVA DE ESQUECIMENTO (DECAY)
       if (agg.lastStudied) {
         const dt = new Date(agg.lastStudied);
         lastDate = dt.toLocaleDateString('pt-BR');
-        
         const diffInMs = Date.now() - dt;
         const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
 
         if (diffInDays === 0) { decayText = "Visto hoje"; }
         else if (diffInDays === 1) { decayText = "Ontem"; }
-        else { decayText = `${diffInDays} dias sem estudar`; }
+        else { decayText = `${diffInDays} dias sem ver`; }
 
-        // Alerta visual: vermelho após 15 dias, amarelo após 7 dias
         if (diffInDays > 15) decayClass = "decay-danger";
         else if (diffInDays > 7) decayClass = "decay-warn";
       }
     }
 
+    // A MÁGICA: Tornando a linha "Arrastável" (Draggable) e embutindo os botões
     return `
-      <div class="rev-row ${isHidden ? 'is-hidden' : ''}">
-        <div class="rev-col-name">
+      <div class="rev-row ${isHidden ? 'is-hidden' : ''}"
+           draggable="true"
+           data-ctindex="${ctIdx}"
+           ondragstart="iniciarArrastoCt(event)"
+           ondragover="permitirSoltarCt(event)"
+           ondragleave="sairAreaSoltarCt(event)"
+           ondrop="soltarCt(event)"
+           ondragend="finalizarArrastoCt(event)"
+           style="cursor: grab;">
+           
+        <div class="rev-col-name" style="gap:10px;">
+          <span style="color:var(--text3); font-size:16px; opacity:0.5; margin-right:4px;" title="Arrastar">⣿</span>
           <button class="btn-rev-toggle" onclick="toggleRevContent(${revCurrentMateriaIndex}, ${ctIdx})" title="Ocultar/Exibir">
             ${isHidden ? '👁️' : '🚫'}
           </button>
-          <span>${escHtml(ctName)}</span>
+          <span style="font-weight: 500;">${escHtml(ctName)}</span>
         </div>
+        
         <div class="rev-col-badge">
           <span class="rev-badge ${badgeClass}" style="min-width: 85px; justify-content: center;">
             <span class="rb-dot" style="background:${dotColor};"></span> ${badgeValue} ${trend}
           </span>
         </div>
+        
         <div class="rev-col-date">
           <div class="rev-decay-box">
              <span style="font-family:'DM Mono', monospace; color:var(--text2); font-size: 12px;">${lastDate}</span>
              <span class="rev-days-off ${decayClass}">${decayText}</span>
           </div>
         </div>
+
+        <div class="rev-row-actions">
+           <button class="btn-ghost btn-sm" style="padding:4px 6px; border:none;" onclick="editConteudoRev(${revCurrentMateriaIndex}, ${ctIdx})" title="Editar Nome do Tópico">✏️</button>
+           <button class="btn-ghost btn-sm" style="padding:4px 6px; border:none; color:var(--danger);" onclick="deleteConteudoRev(${revCurrentMateriaIndex}, ${ctIdx})" title="Apagar Tópico">✕</button>
+        </div>
+
       </div>
     `;
   }).join('');
-} // <--- ESSA CHAVE FECHA A FUNÇÃO renderRevisao
+}
+
+// =================== LÓGICA DE DRAG & DROP DOS TÓPICOS ===================
+let indexArrastadoCt = null;
+
+function iniciarArrastoCt(e) {
+  indexArrastadoCt = parseInt(e.currentTarget.getAttribute('data-ctindex'));
+  e.currentTarget.classList.add('is-dragging');
+}
+function permitirSoltarCt(e) {
+  e.preventDefault(); 
+  const alvo = e.currentTarget;
+  if (alvo && parseInt(alvo.getAttribute('data-ctindex')) !== indexArrastadoCt) {
+    alvo.style.borderTop = '2px solid var(--accent)'; 
+  }
+}
+function sairAreaSoltarCt(e) {
+  if (e.currentTarget) e.currentTarget.style.borderTop = '';
+}
+async function soltarCt(e) {
+  e.preventDefault();
+  const alvo = e.currentTarget;
+  if (!alvo) return;
+  alvo.style.borderTop = '';
+  
+  const indexAlvo = parseInt(alvo.getAttribute('data-ctindex'));
+  if (indexArrastadoCt !== null && indexArrastadoCt !== indexAlvo) {
+    const mat = state.materias[revCurrentMateriaIndex];
+    const itemMovido = mat.conteudos.splice(indexArrastadoCt, 1)[0];
+    mat.conteudos.splice(indexAlvo, 0, itemMovido);
+    
+    await saveMateriasDB();
+    renderRevisao();
+    refreshAllSelects();
+  }
+}
+function finalizarArrastoCt(e) {
+  e.currentTarget.classList.remove('is-dragging');
+  indexArrastadoCt = null;
+  renderRevisao(); 
+}
+
+// =================== LÓGICA DE CRUD DENTRO DA REVISÃO ===================
+
+function setRevMateria(idx) {
+  revCurrentMateriaIndex = idx;
+  renderRevisao();
+}
+
+async function addMateriaRev() {
+  const input = document.getElementById('new-materia-rev-input');
+  const name = input.value.trim();
+  if (!name) { showToast('Digite o nome da matéria.'); return; }
+  if (state.materias.find(m=>m.name===name)) { showToast('Matéria já cadastrada.'); return; }
+  
+  state.materias.push({ name, conteudos:[] });
+  revCurrentMateriaIndex = state.materias.length - 1; // Já abre na aba nova
+  await saveMateriasDB(); 
+  input.value='';
+  renderRevisao(); 
+  refreshAllSelects();
+  showToast('Matéria criada!');
+}
+
+async function deleteMateriaRev() {
+  if(!state.materias[revCurrentMateriaIndex]) return;
+  const nome = state.materias[revCurrentMateriaIndex].name;
+  if (!confirm(`TEM CERTEZA? Isso excluirá a matéria "${nome}" e todos os seus tópicos do edital.`)) return;
+  
+  state.materias.splice(revCurrentMateriaIndex, 1);
+  revCurrentMateriaIndex = 0;
+  await saveMateriasDB(); 
+  renderRevisao(); 
+  refreshAllSelects();
+  showToast('Matéria excluída.');
+}
+
+async function addConteudoRev() {
+  const input = document.getElementById('new-ct-rev-input');
+  const name = input.value.trim();
+  if (!name) { showToast('Digite o nome do tópico.'); return; }
+  
+  const mat = state.materias[revCurrentMateriaIndex];
+  if (!mat) return;
+  if (!mat.conteudos) mat.conteudos=[];
+  if (mat.conteudos.find(c => (c.name || c) === name)) { showToast('Tópico já existe nesta matéria.'); return; }
+  
+  mat.conteudos.push({ id: crypto.randomUUID(), name });
+  await saveMateriasDB(); 
+  input.value='';
+  renderRevisao();
+  refreshAllSelects();
+  
+  // Desce a barra de rolagem para o usuário ver o tópico novo
+  const list = document.getElementById('rev-content-list');
+  list.scrollTop = list.scrollHeight;
+  showToast('Tópico inserido no edital!');
+}
+
+async function editConteudoRev(mi, ci) {
+  const mat = state.materias[mi];
+  const ct = mat.conteudos[ci];
+  const nomeAtual = ct.name || ct;
+  
+  const novoNome = prompt("Editar nome do tópico:", nomeAtual);
+  if (novoNome !== null && novoNome.trim() !== "" && novoNome.trim() !== nomeAtual) {
+    if (typeof mat.conteudos[ci] === 'string') {
+      mat.conteudos[ci] = { id: nomeAtual, name: novoNome.trim() };
+    } else {
+      mat.conteudos[ci].name = novoNome.trim();
+      if (!mat.conteudos[ci].id) mat.conteudos[ci].id = nomeAtual;
+    }
+    await saveMateriasDB();
+    renderRevisao();
+    refreshAllSelects(); 
+    showToast("Tópico atualizado!");
+  }
+}
+
+async function deleteConteudoRev(mi, ci) {
+  if (!confirm(`Tem certeza que deseja apagar este tópico do edital?`)) return;
+  state.materias[mi].conteudos.splice(ci,1);
+  await saveMateriasDB(); 
+  renderRevisao();
+  refreshAllSelects();
+  showToast('Tópico removido.');
+}
 
 async function toggleRevContent(mIdx, ctIdx) {
   const conteudos = state.materias[mIdx].conteudos;
