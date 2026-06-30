@@ -627,7 +627,8 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
         <div class="rev-col-name">Tópico do Edital</div>
         <div class="rev-col-badge">Desempenho</div>
         <div class="rev-col-date">Último Estudo</div>
-        <div style="width: 60px;"></div> </div>
+        <div style="width: 70px;"></div>
+      </div>
       <div id="rev-content-list" style="max-height: 55vh; overflow-y: auto; scrollbar-width: thin;">
          </div>
       
@@ -3367,16 +3368,7 @@ function renderDailyMission() {
     materiasDeHoje.forEach(mName => {
         if (!mName || !mName.trim()) return;
 
-        // Verifica se houve sessão HOJE
-        const jaEstudou = state.sessions.some(s => 
-            s.materia.toLowerCase() === mName.toLowerCase() && 
-            new Date(s.date).toLocaleDateString('pt-BR') === hojeDataStr
-        );
-
-        // Verifica se a matéria foi ignorada HOJE na memória local
-        const isIgnored = localStorage.getItem(`aprovado_ignore_${mName}_${hojeDataStr}`) === 'true';
-
-        // ALGORITMO DE URGÊNCIA E EMERGÊNCIA
+        // 1. PRIMEIRO: Calculamos qual a sugestão para esta matéria
         let sugerido = { ct: "Estudo Geral", motivo: "Tópico inicial (Avanço)", score: -1, isEmergency: false };
         const matObj = state.materias.find(m => m.name.toLowerCase() === mName.toLowerCase());
 
@@ -3384,92 +3376,57 @@ function renderDailyMission() {
             matObj.conteudos.forEach((ct, idx) => {
                 const ctId = ct.id || ct.name;
                 const agg = state.aggregates.conteudos[ctId];
-                
                 let score = 0;
                 let isEmergency = false;
                 let motivoText = "";
 
                 if (!agg) { 
-                    score = 100 - idx; 
-                    motivoText = "Tópico novo (Avançar edital)";
+                    score = 100 - idx; motivoText = "Tópico novo";
                 } else {
                     const perc = agg.totalQs > 0 ? Math.round((agg.correctQs / agg.totalQs) * 100) : 100;
                     const dias = agg.lastStudied ? Math.floor((Date.now() - new Date(agg.lastStudied)) / 86400000) : 30;
-
-                    if (agg.totalQs > 0 && perc < 60) {
-                        score = 1000 + dias; 
-                        isEmergency = true;
-                        motivoText = `🚨 Rendimento Crítico (${perc}%)`;
-                    } else if (agg.totalQs > 0 && perc < 75 && dias >= 7) {
-                        score = 900 + dias; 
-                        isEmergency = true;
-                        motivoText = `🚨 Queda de Retenção (${perc}% há ${dias} dias)`;
-                    } else if (perc >= 85 && dias >= 30) {
-                        score = 850 + dias;
-                        isEmergency = true;
-                        motivoText = `🚨 Revisão Mensal (${dias} dias sem ver)`;
-                    } else if (perc < 85 && dias >= 15) {
-                        score = 800 + dias; 
-                        isEmergency = true;
-                        motivoText = `🚨 Risco de Esquecimento (${dias} dias sem ver)`;
-                    } else {
-                        score = (100 - perc) + (dias * 1.5);
-                        motivoText = perc < 80 ? "🟠 Reforço Necessário" : "Manutenção de rotina";
-                    }
+                    if (agg.totalQs > 0 && perc < 60) { score = 1000 + dias; isEmergency = true; motivoText = `🚨 Rendimento Crítico (${perc}%)`; }
+                    else if (agg.totalQs > 0 && perc < 75 && dias >= 7) { score = 900 + dias; isEmergency = true; motivoText = `🚨 Queda de Retenção`; }
+                    else if (perc >= 85 && dias >= 30) { score = 850 + dias; isEmergency = true; motivoText = `🚨 Revisão Mensal`; }
+                    else if (perc < 85 && dias >= 15) { score = 800 + dias; isEmergency = true; motivoText = `🚨 Risco de Esquecimento`; }
+                    else { score = (100 - perc) + (dias * 1.5); motivoText = perc < 80 ? "🟠 Reforço Necessário" : "Manutenção"; }
                 }
-
                 if (score > sugerido.score && !ct.hidden) {
                     sugerido = { ct: ct.name || ct, motivo: motivoText, score: score, isEmergency: isEmergency };
                 }
             });
         }
 
-        // Define Rótulo e Estilo baseado no Status (Concluído > Ignorado > Pendente)
-        let statusLabel = '';
-        let cardClass = '';
+        // 2. SEGUNDO: Agora verificamos se JÁ ESTUDOU aquele tópico sugerido
+        const jaEstudou = state.sessions.some(s => 
+            s.materia.toLowerCase() === mName.toLowerCase() && 
+            new Date(s.date).toLocaleDateString('pt-BR') === hojeDataStr &&
+            s.conteudos.some(c => (c.name || c).toLowerCase() === sugerido.ct.toLowerCase())
+        );
 
-        if (jaEstudou) {
-            statusLabel = '✅ Concluído';
-            cardClass = 'completed';
-        } else if (isIgnored) {
-            statusLabel = '🙈 Ignorado';
-            cardClass = 'ignored';
-        } else if (sugerido.isEmergency) {
-            statusLabel = '⏳ Pendente';
-            cardClass = 'emergency';
-        } else {
-            statusLabel = '⏳ Pendente';
-            cardClass = sugerido.score > 60 ? 'priority' : '';
-        }
+        const isIgnored = localStorage.getItem(`aprovado_ignore_${mName}_${hojeDataStr}`) === 'true';
 
-        // Montagem do Card
+        let statusLabel = jaEstudou ? '✅ Concluído' : (isIgnored ? '🙈 Ignorado' : '⏳ Pendente');
+        let cardClass = jaEstudou ? 'completed' : (isIgnored ? 'ignored' : (sugerido.isEmergency ? 'emergency' : (sugerido.score > 60 ? 'priority' : '')));
+
         html += `
             <div class="mission-card-mini ${cardClass}">
                 <div style="display:flex; justify-content:space-between; align-items:center;">
                     <strong style="font-size:13px; color:var(--text);">${mName}</strong>
                     <span style="font-size:10px; font-weight:800; color:${jaEstudou ? 'var(--green)' : (isIgnored ? 'var(--text3)' : (sugerido.isEmergency ? 'var(--danger)' : 'var(--text3)'))}">${statusLabel}</span>
                 </div>
-                
-                <div style="font-size:12px; color:var(--text2); margin: 5px 0;">
-                    Tópico: <span style="font-weight: 500; color:var(--text);">${sugerido.ct}</span>
-                </div>
-                
+                <div style="font-size:12px; color:var(--text2); margin: 5px 0;">Tópico: <span style="font-weight: 500; color:var(--text);">${sugerido.ct}</span></div>
                 ${(sugerido.motivo && !isIgnored && !jaEstudou) ? `<div style="font-size:11px; font-weight:600; color:${sugerido.isEmergency ? 'var(--danger)' : 'var(--warn)'}; margin-bottom: 5px;">${sugerido.motivo}</div>` : ''}
-                
                 ${(!jaEstudou && !isIgnored) ? `
                   <div style="display:flex; gap:8px; margin-top:5px;">
-                    <button class="btn ${sugerido.isEmergency ? 'btn-primary' : 'btn-secondary'} btn-sm" style="flex:1; justify-content:center; ${sugerido.isEmergency ? 'background: var(--danger);' : ''}" onclick="startMission('${mName}', '${sugerido.ct}')">${sugerido.isEmergency ? 'Revisão Urgente' : 'Estudar'}</button>
+                    <button class="btn ${sugerido.isEmergency ? 'btn-primary' : 'btn-secondary'} btn-sm" style="flex:1; justify-content:center;" onclick="startMission('${mName}', '${sugerido.ct}')">Estudar</button>
                     <button class="btn btn-ghost btn-sm" style="padding:6px; color:var(--text3);" onclick="ignorarMissao('${mName}')" title="Ignorar missão de hoje">🙈</button>
                   </div>
                 ` : ''}
-
-                ${isIgnored ? `
-                  <button class="btn btn-ghost btn-sm" style="width:100%; justify-content:center; margin-top:5px; font-size:11px; color:var(--text2);" onclick="desfazerIgnorar('${mName}')">↺ Mudei de ideia (Estudar)</button>
-                ` : ''}
+                ${isIgnored ? `<button class="btn btn-ghost btn-sm" style="width:100%; justify-content:center; margin-top:5px; font-size:11px; color:var(--text2);" onclick="desfazerIgnorar('${mName}')">↺ Mudei de ideia</button>` : ''}
             </div>
         `;
     });
-
     html += `</div>`;
     container.innerHTML = html;
 }
