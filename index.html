@@ -588,36 +588,40 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
 
 
 <section class="page" id="page-analytics">
-  <h1 class="page-title">Analytics Avançado</h1>
-  <p class="page-sub">Matriz de Prioridade: Identifique onde você precisa investir energia hoje.</p>
+    <h1 class="page-title">Painel de Performance</h1>
+    <p class="page-sub">Identifique onde investir energia hoje.</p>
 
-  <!-- 1. GRÁFICO DE QUADRANTES -->
-  <div class="card" style="margin-bottom:20px;">
-    <div class="card-title">Matriz de Prioridade (Desempenho vs. Volume)</div>
-    <div class="chart-container" style="height: 350px;">
-      <canvas id="an-quadrant-chart"></canvas>
+    <div class="filter-bar">
+        <div class="filter-group">
+            <label class="filter-label">Filtrar Matéria</label>
+            <div class="select-wrap">
+                <select id="an-materia-filter" onchange="renderAnalytics()">
+                    <option value="todos">Todas as Matérias</option>
+                </select>
+            </div>
+        </div>
     </div>
-  </div>
 
-  <!-- 2. TABELA DE EVOLUÇÃO -->
-  <div class="card">
-    <div class="card-title">Evolução Detalhada por Tópico</div>
-    <div style="overflow-x: auto;">
-      <table class="sessions-table">
-        <thead>
-          <tr>
-            <th>Tópico</th>
-            <th>Aproveit.</th>
-            <th>Evolução (Últimos 5)</th>
-            <th>Tendência</th>
-          </tr>
-        </thead>
-        <tbody id="an-evolution-body">
-          <!-- Gerado via JavaScript -->
-        </tbody>
-      </table>
+    <div class="card" style="margin-bottom:20px;">
+        <div class="card-title">Matriz de Prioridade</div>
+        <div class="chart-container" style="height: 350px;">
+            <canvas id="an-quadrant-chart"></canvas>
+        </div>
     </div>
-  </div>
+
+    <div class="card">
+        <div class="card-title">Tabela de Ação</div>
+        <table class="sessions-table">
+            <thead>
+                <tr>
+                    <th>Tópico</th>
+                    <th>Aproveit.</th>
+                    <th>Recomendação</th>
+                </tr>
+            </thead>
+            <tbody id="an-action-body"></tbody>
+        </table>
+    </div>
 </section>
  <section class="page" id="page-leis">
   <h1 class="page-title">Ciclos de Lei Seca</h1>
@@ -1857,6 +1861,66 @@ function renderDashboard() {
   renderInsights();
 }
 
+function renderAnalytics() {
+    const filter = document.getElementById('an-materia-filter');
+    // Preenche o seletor apenas se estiver vazio
+    if (filter.options.length === 1) {
+        state.materias.forEach(m => {
+            const opt = document.createElement('option');
+            opt.value = m.name; opt.textContent = m.name;
+            filter.appendChild(opt);
+        });
+    }
+
+    const selectedMat = filter.value;
+    
+    // 1. Renderiza Gráfico
+    const canvas = document.getElementById('an-quadrant-chart');
+    if (canvas) {
+        const ctx = canvas.getContext('2d');
+        const data = Object.keys(state.aggregates.conteudos)
+            .filter(id => selectedMat === 'todos' || id.includes(selectedMat))
+            .map(id => {
+                const agg = state.aggregates.conteudos[id];
+                return { 
+                    x: agg.totalTime / 3600, 
+                    y: agg.totalQs > 0 ? (agg.correctQs / agg.totalQs) * 100 : 50, 
+                    label: id 
+                };
+            });
+
+        if (window.quadrantChart) window.quadrantChart.destroy();
+        window.quadrantChart = new Chart(ctx, {
+            type: 'scatter',
+            data: { datasets: [{ label: 'Tópicos', data: data, backgroundColor: '#2D5A3D' }] },
+            options: { responsive: true, maintainAspectRatio: false }
+        });
+    }
+
+    // 2. Renderiza Tabela de Ação
+    const tbody = document.getElementById('an-action-body');
+    if (tbody) {
+        tbody.innerHTML = Object.keys(state.aggregates.conteudos)
+            .filter(id => selectedMat === 'todos' || id.includes(selectedMat))
+            .map(id => {
+                const agg = state.aggregates.conteudos[id];
+                const perc = agg.totalQs > 0 ? Math.round((agg.correctQs / agg.totalQs) * 100) : 0;
+                const horas = agg.totalTime / 3600;
+                
+                let rec = "Manutenção";
+                if (perc < 60 && horas > 5) rec = "Trocar Método ⚠️";
+                else if (perc < 60 && horas <= 5) rec = "Prioridade Máxima 🚨";
+                else if (perc > 85) rec = "Apenas Manutenção ✅";
+                
+                return `<tr>
+                    <td><strong>${escHtml(id)}</strong></td>
+                    <td>${perc}%</td>
+                    <td><strong>${rec}</strong></td>
+                </tr>`;
+            }).join('');
+    }
+}
+  
 function renderGeralStats() {
   const totals = getAggTotal();
   const perc = totals.totalQs > 0 ? Math.round(totals.correctQs / totals.totalQs * 100) : null;
@@ -2041,79 +2105,16 @@ document.getElementById('finish-modal').addEventListener('click',function(e){if(
 // ══════════════════════════════════════════════════
 //  MOTOR DE ANALYTICS — QUADRANTES E EVOLUÇÃO
 // ══════════════════════════════════════════════════
-function renderAnalytics() {
-    renderQuadrantChart();
-    renderEvolutionTable();
-}
+
 
 // ══════════════════════════════════════════════════
 //  CORREÇÃO: RESTAURANDO FUNÇÃO DE APOIO DA REVISÃO
 // ══════════════════════════════════════════════════
 
 
-function renderQuadrantChart() {
-    const canvas = document.getElementById('an-quadrant-chart');
-    // Verifica se o canvas existe antes de tentar obter o contexto
-    if (!canvas || typeof canvas.getContext !== 'function') {
-        console.warn("Elemento canvas 'an-quadrant-chart' não encontrado ou inválido.");
-        return;
-    }
-    const ctx = canvas.getContext('2d');
-    
-    const data = Object.keys(state.aggregates.conteudos).map(id => {
-        const agg = state.aggregates.conteudos[id];
-        return { 
-            x: agg.totalTime / 3600, 
-            y: agg.totalQs > 0 ? (agg.correctQs / agg.totalQs) * 100 : 50, 
-            r: 10, 
-            label: id 
-        };
-    });
 
-    if (window.quadrantChart) window.quadrantChart.destroy();
-    
-    window.quadrantChart = new Chart(ctx, {
-        type: 'bubble',
-        data: { datasets: [{ label: 'Conteúdos', data, backgroundColor: 'rgba(45, 90, 61, 0.6)' }] },
-        options: { responsive: true, maintainAspectRatio: false }
-    });
-}
 
-function renderEvolutionTable() {
-    const tbody = document.getElementById('an-evolution-body');
-    if (!tbody) return;
 
-    // Cria um dicionário para traduzir ID (código) para Nome (legível)
-    const nomeMap = {};
-    state.materias.forEach(m => {
-        if(m.conteudos) m.conteudos.forEach(c => {
-            // Tenta pegar o ID, ou o nome, ou o próprio objeto
-            const id = c.id || c.name || c;
-            nomeMap[id] = c.name || c;
-        });
-    });
-
-    const rows = Object.keys(state.aggregates.conteudos).map(id => {
-        const agg = state.aggregates.conteudos[id];
-        const perc = agg.totalQs > 0 ? Math.round((agg.correctQs / agg.totalQs) * 100) : 0;
-        const trend = calcTrend(id);
-        const evolution = agg.last5.map(item => item.perc >= 80 ? '▓' : '░').join('');
-        
-        // CORREÇÃO: Busca o nome no mapa, se não achar, usa o ID mesmo
-        const nomeParaExibir = nomeMap[id] || id;
-
-        return { name: nomeParaExibir, perc, evolution, trend };
-    }).sort((a,b) => a.perc - b.perc);
-
-    tbody.innerHTML = rows.map(c => `
-        <tr>
-            <td><strong>${escHtml(c.name)}</strong></td>
-            <td>${aprovBadge(c.perc)}</td>
-            <td style="font-family:'DM Mono',monospace; letter-spacing:2px; font-size: 16px;">[${c.evolution}]</td>
-            <td>${c.trend === '↑' ? '📈' : (c.trend === '↓' ? '📉' : '→')}</td>
-        </tr>
-    `).join('');
-}
 const AN_PALETTE = [
   '#2D5A3D','#C8873A','#3A7DC8','#A63AC8','#C83A3A',
   '#3AC8A6','#8A8A2D','#C83A8A','#3A5AC8','#6DC83A'
