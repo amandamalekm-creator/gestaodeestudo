@@ -2598,41 +2598,42 @@ function finalizarArrastoMat(e) {
   
 // 12. SUBSCRIBE REATIVIDADE NO FINAL
 subscribe(renderDashboard);
-subscribe(anRender);
 subscribe(renderRevisao);
 
 // ══════════════════════════════════════════════════
 //  INICIALIZAÇÃO ASSÍNCRONA
 // ══════════════════════════════════════════════════
 async function init(){
-    await loadState(); // Garante que o state.materias foi preenchido
+    await loadState(); 
     refreshAllSelects();
     setDefaultManualDate();
     renderCronometroPage();
-    renderRevisao(); // Agora renderRevisao tem a trava de segurança (setTimeout) caso o state esteja vazio
+    
+    // FORÇAR A RENDERIZAÇÃO APÓS CARREGAR
+    if (state.materias.length > 0) {
+        renderRevisao();
+    } else {
+        // Se estiver vazio, tenta de novo em 1 segundo
+        setTimeout(renderRevisao, 1000);
+    }
 }
 
 
 // ══════════════════════════════════════════════════
 //  MÓDULO DE REVISÃO E GESTÃO DO EDITAL
 // ══════════════════════════════════════════════════
+// Mova a declaração para o topo do seu script, logo abaixo de "let currentUser = null;"
 let revCurrentMateriaIndex = 0;
 
+// O restante da função renderRevisao deve ficar assim (garantindo que o índice seja acessível):
 function renderRevisao() {
     const tabsEl = document.getElementById('rev-tabs');
     const listEl = document.getElementById('rev-content-list');
-    
     if (!tabsEl || !listEl) return;
 
-    // Se o state estiver vazio, tenta novamente
-    if (!state.materias || state.materias.length === 0) {
-        setTimeout(renderRevisao, 500);
-        return;
-    }
+    if (!state.materias || state.materias.length === 0) return;
 
-    if (revCurrentMateriaIndex >= state.materias.length) revCurrentMateriaIndex = 0;
-
-    // 1. Desenha as abas
+    // Desenha abas
     tabsEl.innerHTML = state.materias.map((m, i) => `
         <button class="rev-tab-btn ${i === revCurrentMateriaIndex ? 'active' : ''}" 
             onclick="setRevMateria(${i})">
@@ -2640,22 +2641,15 @@ function renderRevisao() {
         </button>
     `).join('');
 
-    // 2. Desenha a lista de tópicos
+    // Desenha tópicos
     const mat = state.materias[revCurrentMateriaIndex];
-    const conteudos = mat.conteudos || [];
-
-    if (conteudos.length === 0) {
-        listEl.innerHTML = '<div style="padding:30px; text-align:center; color:var(--text3);">Nenhum conteúdo nesta matéria.</div>';
+    if (mat && mat.conteudos && mat.conteudos.length > 0) {
+        listEl.innerHTML = mat.conteudos.map(ct => `
+            <div class="rev-row">
+                <div class="rev-col-name">${escHtml(ct.name || ct)}</div>
+            </div>`).join('');
     } else {
-        listEl.innerHTML = conteudos.map((ct, ctIdx) => {
-            const ctName = ct.name || ct;
-            return `
-                <div class="rev-row">
-                    <div class="rev-col-name">${escHtml(ctName)}</div>
-                    <div class="rev-col-badge">Desempenho</div>
-                    <div class="rev-col-date">Último Estudo</div>
-                </div>`;
-        }).join('');
+        listEl.innerHTML = '<div style="padding:20px; text-align:center;">Nenhum tópico nesta matéria.</div>';
     }
 }
 function iniciarArrastoCt(e) {
