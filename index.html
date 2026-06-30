@@ -460,7 +460,7 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
     <button class="nav-btn" onclick="fazerLogout()" style="margin-top:auto; color:var(--danger);"><span class="ico">🚪</span><span>Sair</span></button>
   </nav>
   <div class="sidebar-footer">Aprovado Nuvem V4
-    <div class="cloud-status" id="db-status">☁️ Conectando...</div>
+    <div class="cloud-status" id="db-status">☁️ Conectando</div>
   </div>
 </aside>
 
@@ -534,7 +534,7 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
         </div>
         <div id="manual-no-ct-hint" style="font-size:12px;color:var(--text3);margin-top:6px;display:none;">Você também pode salvar sem conteúdo específico.</div>
         <div class="divider" style="margin:16px 0;"></div>
-        <div class="form-group" style="margin-bottom:0;"><label class="form-label">Observação <span style="font-weight:400;color:var(--text3)">(opcional)</span></label><textarea id="manual-obs" placeholder="Ex: Revisão dos capítulos 1-3..."></textarea></div>
+        <div class="form-group" style="margin-bottom:0;"><label class="form-label">Observação <span style="font-weight:400;color:var(--text3)">(opcional)</span></label><textarea id="manual-obs" placeholder="Ex: Revisão dos capítulos 1-3"></textarea></div>
         <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:16px;" onclick="saveManualSession()">✏️ Registrar Sessão</button>
       </div>
     </div>
@@ -618,7 +618,7 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
 
     <div style="display:flex; justify-content:space-between; margin-bottom: 12px; align-items:center; flex-wrap: wrap; gap: 10px;">
        <div class="inline-form" style="max-width: 320px;">
-          <input type="text" id="new-materia-rev-input" placeholder="Nome da nova matéria..." maxlength="60" onkeydown="if(event.key==='Enter')addMateriaRev()">
+          <input type="text" id="new-materia-rev-input" placeholder="Nome da nova matéria" maxlength="60" onkeydown="if(event.key==='Enter')addMateriaRev()">
           <button class="btn btn-primary btn-sm" onclick="addMateriaRev()">+ Criar Matéria</button>
        </div>
        <button class="btn btn-ghost btn-sm" style="color:var(--danger); border-color:transparent;" onclick="deleteMateriaRev()">🗑️ Excluir Matéria Atual</button>
@@ -642,7 +642,7 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
       
       <div style="padding: 12px 24px; background: var(--surface2); border-top: 1px solid var(--border); display: flex; gap: 10px; align-items: center;">
           <span style="color:var(--text3); font-size:16px;">↳</span>
-          <input type="text" id="new-ct-rev-input" placeholder="Adicionar novo tópico no final do edital..." style="flex:1; padding: 9px 12px; font-size:13px;" onkeydown="if(event.key==='Enter')addConteudoRev()">
+          <input type="text" id="new-ct-rev-input" placeholder="Adicionar novo tópico no final do edital" style="flex:1; padding: 9px 12px; font-size:13px;" onkeydown="if(event.key==='Enter')addConteudoRev()">
           <button class="btn btn-secondary btn-sm" onclick="addConteudoRev()">+ Inserir Tópico</button>
       </div>
     </div>
@@ -690,7 +690,7 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
 
     <div class="divider"></div>
     <div class="section-label">Blocos de Estudo (Um por linha)</div>
-    <textarea id="lei-blocos" style="min-height: 120px;" placeholder="Art. 1 ao 4&#10;Art. 5&#10;Art. 6 ao 11..."></textarea>
+    <textarea id="lei-blocos" style="min-height: 120px;" placeholder="Art. 1 ao 4&#10;Art. 5&#10;Art. 6 ao 11"></textarea>
     <p style="font-size: 11px; color: var(--text3); margin-top: 5px;">Dica: Cada linha será uma caixinha para marcar.</p>
 
     <div class="modal-actions">
@@ -788,7 +788,7 @@ function getUserRef() {
 // ══════════════════════════════════════════════════
 async function loadState() {
   const statusEl = document.getElementById('db-status');
-  if(statusEl) statusEl.innerHTML = '☁️ Conectando...';
+  if(statusEl) statusEl.innerHTML = '☁️ Conectando';
   
   try {
     // 1. Puxar Matérias (Agora isolado por utilizador)
@@ -899,7 +899,7 @@ if (planDoc.exists) {
 async function loadMoreSessions() {
   if (!lastVisibleSession) return;
   const btn = document.getElementById('btn-load-more');
-  if(btn) btn.textContent = 'Carregando...';
+  if(btn) btn.textContent = 'Carregando';
   
   try {
     const snap = await getUserRef().collection('Sessoes')
@@ -1364,7 +1364,7 @@ async function saveSession() {
     duration: finalDuration, // Usa o tempo ajustado!
     manual: false,
     obs: '',
-    conteudos: modalConteudos.map(c=>({...c}))
+    conteudos: modalConteudos.map(c=>({c}))
   };
 
   if ((!novaSessao.conteudos || !novaSessao.conteudos.length) && !novaSessao.obs){
@@ -1373,7 +1373,7 @@ async function saveSession() {
   }
 
   novaSessao.conteudos = novaSessao.conteudos.map(c=>({
-    ...c,
+    c,
     id: c.id || crypto.randomUUID()
   }));
 
@@ -1737,7 +1737,7 @@ async function saveManualSession() {
     date: dateObj.toISOString(),
     materia, duration,
     manual: true, obs,
-    conteudos: manualConteudos.map(c=>({...c}))
+    conteudos: manualConteudos.map(c=>({c}))
   };
 
   if ((!novaSessao.conteudos || !novaSessao.conteudos.length) && !novaSessao.obs){
@@ -1746,7 +1746,7 @@ async function saveManualSession() {
   }
 
   novaSessao.conteudos = novaSessao.conteudos.map(c=>({
-    ...c,
+    c,
     id: c.id || crypto.randomUUID()
   }));
 
@@ -1949,7 +1949,7 @@ function renderHistory() {
   </table>`;
   
   if (hasMoreSessions) {
-    html += `<button id="btn-load-more" class="btn btn-secondary" style="width:100%;margin-top:16px;justify-content:center;" onclick="loadMoreSessions()">Carregar mais sessões antigas...</button>`;
+    html += `<button id="btn-load-more" class="btn btn-secondary" style="width:100%;margin-top:16px;justify-content:center;" onclick="loadMoreSessions()">Carregar mais sessões antigas</button>`;
   }
   
   el.innerHTML = html;
@@ -2161,7 +2161,7 @@ async function criarCadernoLei() {
 async function saveLeisDB(leiModificadaId = null, salvarApenasLista = false) {
   // 1. Prepara a versão leve para o documento principal
   const leisLeves = state.leis.map(lei => {
-    const { historico, ...resto } = lei;
+    const { historico, resto } = lei;
     return resto;
   });
 
@@ -2617,7 +2617,6 @@ let revCurrentMateriaIndex = 0;
 function renderRevisao() {
     const tabsEl = document.getElementById('rev-tabs');
     const listEl = document.getElementById('rev-content-list');
-    
     if (!tabsEl || !listEl) return;
 
     if (!state.materias || state.materias.length === 0) {
@@ -2630,8 +2629,7 @@ function renderRevisao() {
     tabsEl.innerHTML = state.materias.map((m, i) => `
         <button class="rev-tab-btn ${i === revCurrentMateriaIndex ? 'active' : ''}" 
             onclick="setRevMateria(${i})"
-            draggable="true"
-            data-index="${i}"
+            draggable="true" data-index="${i}"
             ondragstart="iniciarArrastoMat(event)"
             ondragover="permitirSoltarMat(event)"
             ondragleave="sairAreaSoltarMat(event)"
@@ -2646,7 +2644,7 @@ function renderRevisao() {
     const conteudos = mat.conteudos || [];
 
     if (!conteudos.length) {
-        listEl.innerHTML = '<div style="padding:30px; text-align:center; color:var(--text3);">Nenhum conteúdo.</div>';
+        listEl.innerHTML = '<div style="padding:30px; text-align:center; color:var(--text3);">Nenhum conteúdo cadastrado.</div>';
         return;
     }
 
@@ -2655,10 +2653,14 @@ function renderRevisao() {
         const ctId = ct.id || ct.name || ct;
         const agg = state.aggregates.conteudos[ctId];
         const isHidden = ct.hidden || false;
-        return `<div class="rev-row ${isHidden ? 'is-hidden' : ''}">...</div>`;
+        
+        // Retorno da linha corrigido
+        return `<div class="rev-row ${isHidden ? 'is-hidden' : ''}">
+                    <div class="rev-col-name">${escHtml(ctName)}</div>
+                </div>`;
     }).join('');
 }
-
+  
 function iniciarArrastoCt(e) {
   indexArrastadoCt = parseInt(e.currentTarget.getAttribute('data-ctindex'));
   e.currentTarget.classList.add('is-dragging');
@@ -2826,7 +2828,7 @@ function renderScheduleSetup() {
                 ${materias.map((m, mIdx) => `
                     <div class="schedule-item" style="display:flex; gap:3px; align-items:center;">
                         <input type="text" class="schedule-input" value="${escHtml(m)}" 
-                               onchange="updateScheduleItem(${i}, ${mIdx}, this.value)" placeholder="Matéria...">
+                               onchange="updateScheduleItem(${i}, ${mIdx}, this.value)" placeholder="Matéria">
                         <button class="btn-remove-mat" onclick="removeScheduleItem(${i}, ${mIdx})">✕</button>
                     </div>
                 `).join('')}
