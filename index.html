@@ -2033,8 +2033,7 @@ function renderQuadrantChart() {
     });
 
     if (window.quadrantChart) window.quadrantChart.destroy();
-    
-    window.quadrantChart = new Chart(ctx, {
+    window.quadrantChart = new Chart(ctx.getContext('2d'), {
         type: 'bubble',
         data: { datasets: [{ label: 'Conteúdos', data, backgroundColor: 'rgba(45, 90, 61, 0.6)' }] },
         options: {
