@@ -2618,12 +2618,9 @@ function renderRevisao() {
     const tabsEl = document.getElementById('rev-tabs');
     const listEl = document.getElementById('rev-content-list');
     
-    // Se o elemento não existir, para a execução
     if (!tabsEl || !listEl) return;
 
-    // Se as matérias ainda não carregaram, tenta novamente em 500ms
     if (!state.materias || state.materias.length === 0) {
-        console.log("Aguardando carregamento das matérias...");
         setTimeout(renderRevisao, 500);
         return;
     }
@@ -2648,8 +2645,18 @@ function renderRevisao() {
     const mat = state.materias[revCurrentMateriaIndex];
     const conteudos = mat.conteudos || [];
 
-    // ... (o resto da sua função renderRevisao permanece igual)
-    listEl.innerHTML = conteudos.map((ct, ctIdx) => { ... }).join('');
+    if (!conteudos.length) {
+        listEl.innerHTML = '<div style="padding:30px; text-align:center; color:var(--text3);">Nenhum conteúdo.</div>';
+        return;
+    }
+
+    listEl.innerHTML = conteudos.map((ct, ctIdx) => {
+        const ctName = ct.name || ct;
+        const ctId = ct.id || ct.name || ct;
+        const agg = state.aggregates.conteudos[ctId];
+        const isHidden = ct.hidden || false;
+        return `<div class="rev-row ${isHidden ? 'is-hidden' : ''}">...</div>`;
+    }).join('');
 }
 
 function iniciarArrastoCt(e) {
