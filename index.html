@@ -2017,6 +2017,24 @@ function renderAnalytics() {
     renderEvolutionTable();
 }
 
+// ══════════════════════════════════════════════════
+//  CORREÇÃO: RESTAURANDO FUNÇÃO DE APOIO DA REVISÃO
+// ══════════════════════════════════════════════════
+function renderMaterias() {
+    const el = document.getElementById('materias-list');
+    if (!el) return;
+    
+    el.innerHTML = state.materias.map((m, i) => `
+        <div class="materia-item">
+            <div class="materia-header" onclick="toggleConteudos(${i})">
+                <div class="materia-dot"></div>
+                <div class="materia-name-text">${escHtml(m.name)}</div>
+                <div class="materia-meta">${(m.conteudos||[]).length} tópicos</div>
+            </div>
+        </div>
+    `).join('');
+}
+
 function renderQuadrantChart() {
     const ctx = document.getElementById('an-quadrant-chart').getContext('2d');
     const data = [];
