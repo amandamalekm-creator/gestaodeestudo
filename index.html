@@ -2617,8 +2617,10 @@ let revCurrentMateriaIndex = 0;
 function renderRevisao() {
     const tabsEl = document.getElementById('rev-tabs');
     const listEl = document.getElementById('rev-content-list');
+    
     if (!tabsEl || !listEl) return;
 
+    // Se o state estiver vazio, tenta novamente
     if (!state.materias || state.materias.length === 0) {
         setTimeout(renderRevisao, 500);
         return;
@@ -2626,41 +2628,32 @@ function renderRevisao() {
 
     if (revCurrentMateriaIndex >= state.materias.length) revCurrentMateriaIndex = 0;
 
+    // 1. Desenha as abas
     tabsEl.innerHTML = state.materias.map((m, i) => `
         <button class="rev-tab-btn ${i === revCurrentMateriaIndex ? 'active' : ''}" 
-            onclick="setRevMateria(${i})"
-            draggable="true" data-index="${i}"
-            ondragstart="iniciarArrastoMat(event)"
-            ondragover="permitirSoltarMat(event)"
-            ondragleave="sairAreaSoltarMat(event)"
-            ondrop="soltarMat(event)"
-            ondragend="finalizarArrastoMat(event)"
-            style="cursor: grab; user-select: none;">
+            onclick="setRevMateria(${i})">
             ${escHtml(m.name)}
         </button>
     `).join('');
 
+    // 2. Desenha a lista de tópicos
     const mat = state.materias[revCurrentMateriaIndex];
     const conteudos = mat.conteudos || [];
 
-    if (!conteudos.length) {
-        listEl.innerHTML = '<div style="padding:30px; text-align:center; color:var(--text3);">Nenhum conteúdo cadastrado.</div>';
-        return;
-    }
-
-    listEl.innerHTML = conteudos.map((ct, ctIdx) => {
-        const ctName = ct.name || ct;
-        const ctId = ct.id || ct.name || ct;
-        const agg = state.aggregates.conteudos[ctId];
-        const isHidden = ct.hidden || false;
-        
-        // Retorno da linha corrigido
-        return `<div class="rev-row ${isHidden ? 'is-hidden' : ''}">
+    if (conteudos.length === 0) {
+        listEl.innerHTML = '<div style="padding:30px; text-align:center; color:var(--text3);">Nenhum conteúdo nesta matéria.</div>';
+    } else {
+        listEl.innerHTML = conteudos.map((ct, ctIdx) => {
+            const ctName = ct.name || ct;
+            return `
+                <div class="rev-row">
                     <div class="rev-col-name">${escHtml(ctName)}</div>
+                    <div class="rev-col-badge">Desempenho</div>
+                    <div class="rev-col-date">Último Estudo</div>
                 </div>`;
-    }).join('');
+        }).join('');
+    }
 }
-  
 function iniciarArrastoCt(e) {
   indexArrastadoCt = parseInt(e.currentTarget.getAttribute('data-ctindex'));
   e.currentTarget.classList.add('is-dragging');
