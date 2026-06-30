@@ -1887,7 +1887,7 @@ function renderAnalytics() {
     const matFilter = document.getElementById('an-materia-filter');
     const ctFilter = document.getElementById('an-conteudo-filter');
 
-    // 1. Popula Filtro de Matéria (só faz isso na primeira vez)
+    // 1. Popula Filtro de Matéria
     if (matFilter.options.length === 1) {
         state.materias.forEach(m => {
             const opt = document.createElement('option');
@@ -1898,30 +1898,29 @@ function renderAnalytics() {
 
     const selectedMat = matFilter.value;
 
-    // 2. Mapeamento de Nomes e Sistema de Cores por Matéria
+    // 2. Mapeamento robusto: ID do conteúdo -> { nome, materia, cor }
     const nomeMap = {};
     const materiaColors = {};
-    // Paleta de cores vibrantes e modernas para facilitar a leitura no gráfico
     const colorPalette = ['#2D5A3D', '#C8873A', '#3A7DC8', '#8E44AD', '#E74C3C', '#16A085', '#D35400', '#2C3E50'];
     
     state.materias.forEach((m, idx) => {
         materiaColors[m.name] = colorPalette[idx % colorPalette.length];
         if (m.conteudos) {
             m.conteudos.forEach(c => {
+                // Usa o ID único se existir, senão usa o nome como ID
                 const id = c.id || c.name || c;
-                nomeMap[id] = { name: c.name || c, materia: m.name };
+                nomeMap[id] = { name: c.name || c, materia: m.name, cor: colorPalette[idx % colorPalette.length] };
             });
         }
     });
 
-    // 3. Popula Filtro de Conteúdo baseado na Matéria selecionada
+    // 3. Popula Filtro de Conteúdo (filtrado pela matéria)
     const currentCt = ctFilter.value;
     ctFilter.innerHTML = '<option value="todos">Todos os Conteúdos</option>';
     Object.keys(nomeMap).forEach(id => {
-        const info = nomeMap[id];
-        if (selectedMat === 'todos' || info.materia === selectedMat) {
+        if (selectedMat === 'todos' || nomeMap[id].materia === selectedMat) {
             const opt = document.createElement('option');
-            opt.value = id; opt.textContent = info.name;
+            opt.value = id; opt.textContent = nomeMap[id].name;
             if (id === currentCt) opt.selected = true;
             ctFilter.appendChild(opt);
         }
@@ -1929,80 +1928,47 @@ function renderAnalytics() {
     
     const selectedCt = ctFilter.value;
 
-    // 4. PREPARAÇÃO DOS DADOS FILTRADOS
+    // 4. Filtra IDs (Verifica se o ID existe no mapa antes de filtrar)
     const filteredIds = Object.keys(state.aggregates.conteudos).filter(id => {
         const info = nomeMap[id];
-        if (!info) return false;
+        if (!info) return false; // ID não cadastrado no edital
         const matchMat = selectedMat === 'todos' || info.materia === selectedMat;
         const matchCt = selectedCt === 'todos' || id === selectedCt;
         return matchMat && matchCt;
     });
 
-    // ==========================================
-    // GRÁFICO 1: EVOLUÇÃO (LINHAS)
-    // ==========================================
+    // 5. Renderiza Gráfico de Linha (Evolução)
     const canvasEvol = document.getElementById('an-evolution-chart');
     if (canvasEvol) {
         const datasetsEvol = filteredIds.map(id => {
             const agg = state.aggregates.conteudos[id];
             const info = nomeMap[id];
-            
-            // Constrói os pontos usando o histórico de revisões (Decay/Evolução)
-            const dataPoints = agg.last5.map((entry, index) => ({
-                x: `Sessão ${index + 1}`,
-                y: Math.round(entry.perc * 100),
-                dataOriginal: new Date(entry.date).toLocaleDateString('pt-BR')
-            }));
-
             return {
                 label: info.name,
-                data: dataPoints,
-                borderColor: materiaColors[info.materia],
-                backgroundColor: materiaColors[info.materia],
-                borderWidth: 3,
-                pointRadius: 5,
-                pointHoverRadius: 8,
-                tension: 0.3 // Deixa a linha suave
+                data: agg.last5.map((entry, idx) => ({ x: `Sessão ${idx+1}`, y: Math.round(entry.perc * 100) })),
+                borderColor: info.cor,
+                backgroundColor: info.cor,
+                tension: 0.3
             };
-        }).filter(ds => ds.data.length > 0); // Oculta quem não tem questões resolvidas
+        }).filter(ds => ds.data.length > 0);
 
         if (window.evolutionChart) window.evolutionChart.destroy();
         window.evolutionChart = new Chart(canvasEvol.getContext('2d'), {
             type: 'line',
             data: { datasets: datasetsEvol },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: {
-                    y: { min: 0, max: 100, title: { display: true, text: 'Aproveitamento (%)' } },
-                    x: { type: 'category' }
-                },
-                plugins: {
-                    tooltip: {
-                        callbacks: {
-                            label: (c) => `${c.dataset.label}: ${c.raw.y}% (Estudado em: ${c.raw.dataOriginal})`
-                        }
-                    }
-                }
-            }
+            options: { responsive: true, maintainAspectRatio: false, scales: { y: { min: 0, max: 100 } } }
         });
     }
 
-    // ==========================================
-    // GRÁFICO 2: MATRIZ DE PRIORIDADE (BOLHAS COM CORES)
-    // ==========================================
+    // 6. Renderiza Gráfico de Bolhas (Matriz)
     const canvasQuad = document.getElementById('an-quadrant-chart');
     if (canvasQuad) {
-        const dataQuad = filteredIds.map(id => {
-            const agg = state.aggregates.conteudos[id];
-            const info = nomeMap[id];
-            return { 
-                x: agg.totalTime / 3600, 
-                y: agg.totalQs > 0 ? (agg.correctQs / agg.totalQs) * 100 : 50, 
-                label: info.name,
-                materia: info.materia
-            };
-        });
+        const dataQuad = filteredIds.map(id => ({
+            x: state.aggregates.conteudos[id].totalTime / 3600,
+            y: (state.aggregates.conteudos[id].correctQs / (state.aggregates.conteudos[id].totalQs || 1)) * 100,
+            label: nomeMap[id].name,
+            cor: nomeMap[id].cor
+        }));
 
         if (window.quadrantChart) window.quadrantChart.destroy();
         window.quadrantChart = new Chart(canvasQuad.getContext('2d'), {
@@ -2011,36 +1977,18 @@ function renderAnalytics() {
                 datasets: [{ 
                     label: 'Tópicos', 
                     data: dataQuad, 
-                    // Aplica a cor da matéria na bolinha do tópico
-                    pointBackgroundColor: dataQuad.map(d => materiaColors[d.materia]),
-                    pointBorderColor: '#FFF',
-                    pointBorderWidth: 1.5,
-                    pointRadius: 8,
-                    pointHoverRadius: 12
+                    pointBackgroundColor: dataQuad.map(d => d.cor),
+                    pointRadius: 8 
                 }] 
             },
             options: { 
-                responsive: true, 
-                maintainAspectRatio: false,
-                scales: {
-                    x: { title: { display: true, text: 'Horas Totais Estudadas' } },
-                    y: { min: 0, max: 100, title: { display: true, text: 'Aproveitamento Médio (%)' } }
-                },
-                plugins: {
-                    tooltip: { 
-                        callbacks: { 
-                            // Nome legível na bolinha ao passar o mouse
-                            label: (c) => `${c.raw.label}: ${Math.round(c.raw.y)}% em ${c.raw.x.toFixed(1)}h` 
-                        } 
-                    }
-                }
+                responsive: true, maintainAspectRatio: false,
+                plugins: { tooltip: { callbacks: { label: (c) => `${c.raw.label}: ${Math.round(c.raw.y)}%` } } }
             }
         });
     }
 
-    // ==========================================
-    // TABELA 3: AÇÃO E DIAGNÓSTICO
-    // ==========================================
+    // 7. Renderiza Tabela de Ação
     const tbody = document.getElementById('an-action-body');
     if (tbody) {
         tbody.innerHTML = filteredIds.map(id => {
@@ -2049,39 +1997,16 @@ function renderAnalytics() {
             const perc = agg.totalQs > 0 ? Math.round((agg.correctQs / agg.totalQs) * 100) : 0;
             const horas = agg.totalTime / 3600;
             
-            // Sistema de Diagnóstico Automático
-            let rec = "<span style='color:var(--text2)'>Manutenção Constante 📘</span>";
-            let rowBg = "";
-            if (perc < 60 && horas > 5) {
-                rec = "<span style='color:var(--danger)'>Revisar Teoria (Estudou muito, errou muito) ⚠️</span>";
-                rowBg = "background: var(--danger-light);";
-            }
-            else if (perc < 60 && horas <= 5) {
-                rec = "<span style='color:var(--warn)'>Prioridade (Iniciante no tema) 🚨</span>";
-                rowBg = "background: var(--warn-light);";
-            }
-            else if (perc > 85) {
-                rec = "<span style='color:var(--green)'>Domínio (Faça só revisões rápidas) ✅</span>";
-                rowBg = "background: #e8f5ec;";
-            }
-
-            // Indicador de Tendência (Trend) usando a sua função existente
-            const trend = calcTrend(id);
-            const trendIco = trend === '↑' ? '<span style="color:var(--green); font-weight:bold;">📈 Subindo</span>' : 
-                             (trend === '↓' ? '<span style="color:var(--danger); font-weight:bold;">📉 Caindo</span>' : '<span style="color:var(--text3); font-weight:bold;">→ Estável</span>');
+            let rec = "Manutenção Constante 📘";
+            if (perc < 60 && horas > 5) rec = "Trocar Método ⚠️";
+            else if (perc < 60 && horas <= 5) rec = "Prioridade Máxima 🚨";
+            else if (perc > 85) rec = "Domínio ✅";
             
-            return `<tr style="${rowBg}">
-                <td>
-                    <div style="font-size:10px; color:var(--text3); text-transform:uppercase; font-weight:bold; margin-bottom: 2px;">
-                        ${escHtml(info.materia)}
-                    </div>
-                    <strong style="font-size:13px;">${escHtml(info.name)}</strong>
-                </td>
-                <td>
-                    <span class="badge ${perc >= 80 ? 'badge-green' : (perc >= 60 ? 'badge-warn' : 'badge-danger')}">${perc}%</span>
-                </td>
-                <td>${trendIco}</td>
-                <td>${rec}</td>
+            return `<tr>
+                <td><div style="font-size:9px; color:#999;">${info.materia}</div><strong>${info.name}</strong></td>
+                <td><span class="badge">${perc}%</span></td>
+                <td>${calcTrend(id) === '↑' ? '📈' : '→'}</td>
+                <td><strong>${rec}</strong></td>
             </tr>`;
         }).join('');
     }
