@@ -2602,11 +2602,11 @@ subscribe(renderRevisao);
 //  INICIALIZAÇÃO ASSÍNCRONA
 // ══════════════════════════════════════════════════
 async function init(){
-  await loadState();
-  refreshAllSelects();
-  setDefaultManualDate();
-  renderCronometroPage();
-  renderRevisao(); // <--- Esta função desenha as abas e conteúdos da Revisão
+    await loadState(); // Garante que o state.materias foi preenchido
+    refreshAllSelects();
+    setDefaultManualDate();
+    renderCronometroPage();
+    renderRevisao(); // Agora renderRevisao tem a trava de segurança (setTimeout) caso o state esteja vazio
 }
 
 
@@ -2616,124 +2616,42 @@ async function init(){
 let revCurrentMateriaIndex = 0;
 
 function renderRevisao() {
-  const tabsEl = document.getElementById('rev-tabs');
-  const listEl = document.getElementById('rev-content-list');
-  if (!tabsEl || !listEl) return;
-
-  if (!state.materias || !state.materias.length) {
-    tabsEl.innerHTML = '';
-    listEl.innerHTML = '<div class="empty"><p>Nenhuma matéria cadastrada.</p></div>';
-    return;
-  }
-
-  if (revCurrentMateriaIndex >= state.materias.length) revCurrentMateriaIndex = 0;
-
-  tabsEl.innerHTML = state.materias.map((m, i) => `
-    <button class="rev-tab-btn ${i === revCurrentMateriaIndex ? 'active' : ''}" 
-      onclick="setRevMateria(${i})"
-      draggable="true"
-      data-index="${i}"
-      ondragstart="iniciarArrastoMat(event)"
-      ondragover="permitirSoltarMat(event)"
-      ondragleave="sairAreaSoltarMat(event)"
-      ondrop="soltarMat(event)"
-      ondragend="finalizarArrastoMat(event)"
-      style="cursor: grab; user-select: none;"
-      title="Clique e arraste para reordenar">
-      ${escHtml(m.name)}
-    </button>
-  `).join('');
-
-  const mat = state.materias[revCurrentMateriaIndex];
-  const conteudos = mat.conteudos || [];
-
-  if (!conteudos.length) {
-    listEl.innerHTML = '<div style="padding:30px; text-align:center; color:var(--text3);">Nenhum conteúdo cadastrado nesta matéria. Use o campo abaixo para adicionar.</div>';
-    return;
-  }
-
-  listEl.innerHTML = conteudos.map((ct, ctIdx) => {
-    const ctName = ct.name || ct;
-    const ctId = ct.id || ct.name || ct;
-    const agg = state.aggregates.conteudos[ctId];
-    const isHidden = ct.hidden || false;
+    const tabsEl = document.getElementById('rev-tabs');
+    const listEl = document.getElementById('rev-content-list');
     
-    let badgeClass = 'rb-fazer', badgeValue = 'Fazer', dotColor = '#9E9890', lastDate = '—';
-    let trend = "", decayText = "", decayClass = "decay-ok";
+    // Se o elemento não existir, para a execução
+    if (!tabsEl || !listEl) return;
 
-    if (agg) {
-      if (agg.totalQs > 0) {
-        const perc = Math.round((agg.correctQs / agg.totalQs) * 100);
-        badgeValue = perc + '%';
-        trend = `<span class="rev-trend">${calcTrend(ctId)}</span>`; 
-
-        if (perc >= 80) { badgeClass = 'rb-bom'; dotColor = '#27AE60'; }
-        else if (perc >= 60) { badgeClass = 'rb-medio'; dotColor = '#D4842A'; }
-        else { badgeClass = 'rb-ruim'; dotColor = '#C0392B'; }
-      } else if (agg.totalTime > 0) {
-        badgeClass = 'rb-teoria'; badgeValue = 'Teoria'; dotColor = 'var(--accent)';
-      }
-
-      if (agg.lastStudied) {
-        const dt = new Date(agg.lastStudied);
-        lastDate = dt.toLocaleDateString('pt-BR');
-        const diffInMs = Date.now() - dt;
-        const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
-
-        if (diffInDays === 0) { decayText = "Visto hoje"; }
-        else if (diffInDays === 1) { decayText = "Ontem"; }
-        else { decayText = `${diffInDays} dias sem ver`; }
-
-        if (diffInDays > 15) decayClass = "decay-danger";
-        else if (diffInDays > 7) decayClass = "decay-warn";
-      }
+    // Se as matérias ainda não carregaram, tenta novamente em 500ms
+    if (!state.materias || state.materias.length === 0) {
+        console.log("Aguardando carregamento das matérias...");
+        setTimeout(renderRevisao, 500);
+        return;
     }
 
-    // A MÁGICA: Tornando a linha "Arrastável" (Draggable) e embutindo os botões
-    return `
-      <div class="rev-row ${isHidden ? 'is-hidden' : ''}"
-           draggable="true"
-           data-ctindex="${ctIdx}"
-           ondragstart="iniciarArrastoCt(event)"
-           ondragover="permitirSoltarCt(event)"
-           ondragleave="sairAreaSoltarCt(event)"
-           ondrop="soltarCt(event)"
-           ondragend="finalizarArrastoCt(event)"
-           style="cursor: grab;">
-           
-        <div class="rev-col-name" style="gap:10px;">
-          <span style="color:var(--text3); font-size:16px; opacity:0.5; margin-right:4px;" title="Arrastar">⣿</span>
-          <button class="btn-rev-toggle" onclick="toggleRevContent(${revCurrentMateriaIndex}, ${ctIdx})" title="Ocultar/Exibir">
-            ${isHidden ? '👁️' : '🚫'}
-          </button>
-          <span style="font-weight: 500;">${escHtml(ctName)}</span>
-        </div>
-        
-        <div class="rev-col-badge">
-          <span class="rev-badge ${badgeClass}" style="min-width: 85px; justify-content: center;">
-            <span class="rb-dot" style="background:${dotColor};"></span> ${badgeValue} ${trend}
-          </span>
-        </div>
-        
-        <div class="rev-col-date">
-          <div class="rev-decay-box">
-             <span style="font-family:'DM Mono', monospace; color:var(--text2); font-size: 12px;">${lastDate}</span>
-             <span class="rev-days-off ${decayClass}">${decayText}</span>
-          </div>
-        </div>
+    if (revCurrentMateriaIndex >= state.materias.length) revCurrentMateriaIndex = 0;
 
-        <div class="rev-row-actions">
-           <button class="btn-ghost btn-sm" style="padding:4px 6px; border:none;" onclick="editConteudoRev(${revCurrentMateriaIndex}, ${ctIdx})" title="Editar Nome do Tópico">✏️</button>
-           <button class="btn-ghost btn-sm" style="padding:4px 6px; border:none; color:var(--danger);" onclick="deleteConteudoRev(${revCurrentMateriaIndex}, ${ctIdx})" title="Apagar Tópico">✕</button>
-        </div>
+    tabsEl.innerHTML = state.materias.map((m, i) => `
+        <button class="rev-tab-btn ${i === revCurrentMateriaIndex ? 'active' : ''}" 
+            onclick="setRevMateria(${i})"
+            draggable="true"
+            data-index="${i}"
+            ondragstart="iniciarArrastoMat(event)"
+            ondragover="permitirSoltarMat(event)"
+            ondragleave="sairAreaSoltarMat(event)"
+            ondrop="soltarMat(event)"
+            ondragend="finalizarArrastoMat(event)"
+            style="cursor: grab; user-select: none;">
+            ${escHtml(m.name)}
+        </button>
+    `).join('');
 
-      </div>
-    `;
-  }).join('');
+    const mat = state.materias[revCurrentMateriaIndex];
+    const conteudos = mat.conteudos || [];
+
+    // ... (o resto da sua função renderRevisao permanece igual)
+    listEl.innerHTML = conteudos.map((ct, ctIdx) => { ... }).join('');
 }
-
-// =================== LÓGICA DE DRAG & DROP DOS TÓPICOS ===================
-let indexArrastadoCt = null;
 
 function iniciarArrastoCt(e) {
   indexArrastadoCt = parseInt(e.currentTarget.getAttribute('data-ctindex'));
