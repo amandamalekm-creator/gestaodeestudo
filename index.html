@@ -2020,20 +2020,7 @@ function renderAnalytics() {
 // ══════════════════════════════════════════════════
 //  CORREÇÃO: RESTAURANDO FUNÇÃO DE APOIO DA REVISÃO
 // ══════════════════════════════════════════════════
-function renderMaterias() {
-    const el = document.getElementById('materias-list');
-    if (!el) return;
-    
-    el.innerHTML = state.materias.map((m, i) => `
-        <div class="materia-item">
-            <div class="materia-header" onclick="toggleConteudos(${i})">
-                <div class="materia-dot"></div>
-                <div class="materia-name-text">${escHtml(m.name)}</div>
-                <div class="materia-meta">${(m.conteudos||[]).length} tópicos</div>
-            </div>
-        </div>
-    `).join('');
-}
+
 
 function renderQuadrantChart() {
     const ctx = document.getElementById('an-quadrant-chart').getContext('2d');
@@ -2066,15 +2053,25 @@ function renderEvolutionTable() {
     const tbody = document.getElementById('an-evolution-body');
     if (!tbody) return;
 
-    const conteudoIds = Object.keys(state.aggregates.conteudos);
-    
-    const rows = conteudoIds.map(id => {
+    // Cria um dicionário para traduzir ID (código) para Nome (legível)
+    const nomeMap = {};
+    state.materias.forEach(m => {
+        if(m.conteudos) m.conteudos.forEach(c => {
+            const id = c.id || c.name || c;
+            nomeMap[id] = c.name || c;
+        });
+    });
+
+    const rows = Object.keys(state.aggregates.conteudos).map(id => {
         const agg = state.aggregates.conteudos[id];
         const perc = agg.totalQs > 0 ? Math.round((agg.correctQs / agg.totalQs) * 100) : 0;
         const trend = calcTrend(id);
         const evolution = agg.last5.map(item => item.perc >= 80 ? '▓' : '░').join('');
         
-        return { name: id, perc, evolution, trend };
+        // Traduz o ID para o nome legível
+        const nomeParaExibir = nomeMap[id] || id;
+
+        return { name: nomeParaExibir, perc, evolution, trend };
     }).sort((a,b) => a.perc - b.perc);
 
     tbody.innerHTML = rows.map(c => `
@@ -2606,10 +2603,10 @@ subscribe(renderRevisao);
 // ══════════════════════════════════════════════════
 async function init(){
   await loadState();
-  
   refreshAllSelects();
   setDefaultManualDate();
   renderCronometroPage();
+  renderRevisao(); // <--- Esta função desenha as abas e conteúdos da Revisão
 }
 
 
