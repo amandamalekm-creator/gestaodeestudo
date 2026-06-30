@@ -563,27 +563,35 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
 
 
 <section class="page" id="page-analytics">
-  <h1 class="page-title">Analytics</h1>
-  <p class="page-sub">Evolução do desempenho (baseado nas sessões carregadas).</p>
-  <div class="filter-bar">
-    <div class="filter-group"><div class="filter-label">Matéria</div><div class="select-wrap"><select id="an-materia-sel" onchange="anOnMateriaChange()"><option value="__all__">Todas</option></select></div></div>
-    <div class="filter-group"><div class="filter-label">Conteúdo</div><div class="select-wrap"><select id="an-conteudo-sel" onchange="anRender()"><option value="__all__">Todos</option></select></div></div>
-    <div class="filter-group" style="min-width:140px;max-width:180px;"><div class="filter-label">Meta de aproveitamento</div><div class="goal-row"><input type="range" id="an-goal-range" min="0" max="100" step="5" value="85" onchange="anUpdateGoal(this.value)"><div class="goal-value-display" id="an-goal-display">85%</div></div></div>
-    <div class="filter-group" style="min-width:auto;flex:0;"><div class="filter-label">Visualização</div><div class="toggle-group"><div class="toggle-pill active" id="an-mode-raw" onclick="anSetMode('raw')">Dados reais</div><div class="toggle-pill" id="an-mode-weekly" onclick="anSetMode('weekly')">Média semanal</div></div></div>
-  </div>
-  <div style="margin-bottom:16px;"><div class="filter-label" style="margin-bottom:8px;">Comparar matérias</div><div class="toggle-group" id="an-subject-pills"></div></div>
-  <div class="chart-card chart-card-wide" style="margin-bottom:20px;">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
-      <div class="card-title" style="margin-bottom:0;">Evolução do Aproveitamento</div>
-      <div style="font-size:12px;color:var(--text3);" id="an-chart-subtitle">Últimos registros</div>
+  <h1 class="page-title">Analytics Avançado</h1>
+  <p class="page-sub">Matriz de Prioridade: Identifique onde você precisa investir energia hoje.</p>
+
+  <!-- 1. GRÁFICO DE QUADRANTES -->
+  <div class="card" style="margin-bottom:20px;">
+    <div class="card-title">Matriz de Prioridade (Desempenho vs. Volume)</div>
+    <div class="chart-container" style="height: 350px;">
+      <canvas id="an-quadrant-chart"></canvas>
     </div>
-    <div class="chart-container" style="height:320px;" id="an-main-chart-wrap"><canvas id="an-main-chart"></canvas></div>
-    <div class="no-data-chart" id="an-no-data" style="display:none;"><div class="ico">📈</div><p>Nenhum dado disponível.</p></div>
   </div>
-  <div class="analytics-grid">
-    <div class="chart-card"><div class="card-title">Média Semanal</div><div id="an-weekly-table-wrap"></div></div>
-    <div class="chart-card"><div class="card-title">Top Conteúdos</div><div id="an-top-conteudos-wrap"></div></div>
-    <div class="chart-card"><div class="card-title">Resumo do Período</div><div id="an-period-summary-wrap"></div></div>
+
+  <!-- 2. TABELA DE EVOLUÇÃO -->
+  <div class="card">
+    <div class="card-title">Evolução Detalhada por Tópico</div>
+    <div style="overflow-x: auto;">
+      <table class="sessions-table">
+        <thead>
+          <tr>
+            <th>Tópico</th>
+            <th>Aproveit.</th>
+            <th>Evolução (Últimos 5)</th>
+            <th>Tendência</th>
+          </tr>
+        </thead>
+        <tbody id="an-evolution-body">
+          <!-- Gerado via JavaScript -->
+        </tbody>
+      </table>
+    </div>
   </div>
 </section>
  <section class="page" id="page-leis">
@@ -2002,9 +2010,64 @@ function showToast(msg){
 document.getElementById('finish-modal').addEventListener('click',function(e){if(e.target===this)cancelFinish();});
 
 // ══════════════════════════════════════════════════
-//  ANALYTICS ENGINE
+//  MOTOR DE ANALYTICS — QUADRANTES E EVOLUÇÃO
 // ══════════════════════════════════════════════════
+function renderAnalytics() {
+    renderQuadrantChart();
+    renderEvolutionTable();
+}
 
+function renderQuadrantChart() {
+    const ctx = document.getElementById('an-quadrant-chart').getContext('2d');
+    const data = [];
+    
+    Object.keys(state.aggregates.conteudos).forEach(id => {
+        const agg = state.aggregates.conteudos[id];
+        const perc = agg.totalQs > 0 ? (agg.correctQs / agg.totalQs) * 100 : 50;
+        data.push({ x: agg.totalTime / 3600, y: perc, r: 10, label: id });
+    });
+
+    if (window.quadrantChart) window.quadrantChart.destroy();
+    
+    window.quadrantChart = new Chart(ctx, {
+        type: 'bubble',
+        data: { datasets: [{ label: 'Conteúdos', data, backgroundColor: 'rgba(45, 90, 61, 0.6)' }] },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                x: { title: { display: true, text: 'Horas Totais Estudadas' }, beginAtZero: true },
+                y: { title: { display: true, text: 'Aproveitamento (%)' }, min: 0, max: 100 }
+            },
+            plugins: { tooltip: { callbacks: { label: ctx => ctx.raw.label + ': ' + Math.round(ctx.raw.y) + '%' } } }
+        }
+    });
+}
+
+function renderEvolutionTable() {
+    const tbody = document.getElementById('an-evolution-body');
+    if (!tbody) return;
+
+    const conteudoIds = Object.keys(state.aggregates.conteudos);
+    
+    const rows = conteudoIds.map(id => {
+        const agg = state.aggregates.conteudos[id];
+        const perc = agg.totalQs > 0 ? Math.round((agg.correctQs / agg.totalQs) * 100) : 0;
+        const trend = calcTrend(id);
+        const evolution = agg.last5.map(item => item.perc >= 80 ? '▓' : '░').join('');
+        
+        return { name: id, perc, evolution, trend };
+    }).sort((a,b) => a.perc - b.perc);
+
+    tbody.innerHTML = rows.map(c => `
+        <tr>
+            <td><strong>${escHtml(c.name)}</strong></td>
+            <td>${aprovBadge(c.perc)}</td>
+            <td style="font-family:'DM Mono',monospace; letter-spacing:2px; font-size: 16px;">[${c.evolution}]</td>
+            <td>${c.trend === '↑' ? '📈' : (c.trend === '↓' ? '📉' : '→')}</td>
+        </tr>
+    `).join('');
+}
 const AN_PALETTE = [
   '#2D5A3D','#C8873A','#3A7DC8','#A63AC8','#C83A3A',
   '#3AC8A6','#8A8A2D','#C83A8A','#3A5AC8','#6DC83A'
@@ -2015,488 +2078,7 @@ let anMode = 'raw';
 let anGoal = 85;              
 let anActiveSubjects = new Set(); 
 
-function renderAnalytics() {
-  anPopulateMateriaFilter();
-  anBuildSubjectPills();
-  anRender();
-}
 
-function anBuildPoints(materiaFilter, conteudoFilter) {
-  const pts = [];
-  state.sessions.forEach(s => {
-    if (materiaFilter !== '__all__' && s.materia !== materiaFilter) return;
-    const d = new Date(s.date);
-    s.conteudos.forEach(c => {
-      if (c.onlyTheory || !c.total) return;
-      // Busca o nome atualizado na lista de matérias usando o ID ou nome antigo como chave
-const matObj = state.materias.find(m => m.name === s.materia);
-const ctObj = matObj?.conteudos?.find(ct => (ct.id === c.id || (ct.name || ct) === (c.name || c)));
-const cName = ctObj?.name || c.name || c;
-      if (conteudoFilter !== '__all__' && cName !== conteudoFilter) return;
-      const perc = Math.round(c.correct / c.total * 100);
-      pts.push({ date: d, dateStr: d.toLocaleDateString('pt-BR'), materia: s.materia, conteudo: cName || '(geral)', perc });
-    });
-  });
-  pts.sort((a, b) => a.date - b.date);
-  return pts;
-}
-
-function anGroupBy(pts, keyFn) {
-  const map = {};
-  pts.forEach(p => {
-    const k = keyFn(p);
-    if (!map[k]) map[k] = [];
-    map[k].push(p);
-  });
-  Object.keys(map).forEach(k => {
-    if (map[k].length > 5) map[k] = map[k].slice(-5);
-  });
-  return map;
-}
-
-function anWeeklyAverage(pts) {
-  const weekMap = {};
-  pts.forEach(p => {
-    const wk = isoWeekKey(p.date);
-    if (!weekMap[wk]) weekMap[wk] = { sum: 0, count: 0, label: weekLabel(p.date), date: p.date };
-    weekMap[wk].sum += p.perc;
-    weekMap[wk].count++;
-  });
-  return Object.entries(weekMap)
-    .sort((a, b) => a[0].localeCompare(b[0]))
-    .map(([, v]) => ({ label: v.label, perc: Math.round(v.sum / v.count), date: v.date }));
-}
-
-function isoWeekKey(d) {
-  const tmp = new Date(d); tmp.setHours(0,0,0,0);
-  tmp.setDate(tmp.getDate() + 3 - (tmp.getDay()+6)%7);
-  const w1 = new Date(tmp.getFullYear(), 0, 4);
-  const wn = 1 + Math.round(((tmp - w1) / 86400000 - 3 + (w1.getDay()+6)%7) / 7);
-  return `${tmp.getFullYear()}-W${String(wn).padStart(2,'0')}`;
-}
-function weekLabel(d) {
-  const start = new Date(d);
-  start.setDate(start.getDate() - (start.getDay() || 7) + 1);
-  return start.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'});
-}
-
-function anPopulateMateriaFilter() {
-  const sel = document.getElementById('an-materia-sel');
-  const cur = sel.value;
-  sel.innerHTML = '<option value="__all__">Todas as matérias</option>';
-  const seen = new Set();
-  state.sessions.forEach(s => seen.add(s.materia));
-  [...seen].sort().forEach(m => {
-    const o = document.createElement('option');
-    o.value = m; o.textContent = m;
-    if (m === cur) o.selected = true;
-    sel.appendChild(o);
-  });
-}
-
-function anOnMateriaChange() {
-  const materia = document.getElementById('an-materia-sel').value;
-  const sel = document.getElementById('an-conteudo-sel');
-  sel.innerHTML = '<option value="__all__">Todos os conteúdos</option>';
-  
-  const seen = new Set();
-  
-  // NOVA LÓGICA: Busca os nomes direto da aba Matérias
-  const matObj = state.materias.find(m => m.name === materia);
-  if (matObj && matObj.conteudos) {
-    matObj.conteudos.forEach(c => {
-      const nomeVisual = c.name || c;
-      seen.add(nomeVisual);
-    });
-  } else if (materia === '__all__') {
-    // Se selecionou "Todas", pega os nomes de todas as matérias cadastradas
-    state.materias.forEach(m => {
-      if (m.conteudos) m.conteudos.forEach(c => seen.add(c.name || c));
-    });
-  }
-
-  [...seen].sort().forEach(c => {
-    const o = document.createElement('option'); 
-    o.value = c; 
-    o.textContent = c; 
-    sel.appendChild(o);
-  });
-  anRender();
-}
-  
-function anBuildSubjectPills() {
-  const subjects = [...new Set(state.sessions.map(s => s.materia))].sort();
-  anActiveSubjects = new Set(subjects); 
-  const wrap = document.getElementById('an-subject-pills');
-  if (!subjects.length) { wrap.innerHTML = '<span style="font-size:12px;color:var(--text3);">Nenhuma matéria com dados ainda.</span>'; return; }
-  wrap.innerHTML = subjects.map((m, i) => {
-    const color = AN_PALETTE[i % AN_PALETTE.length];
-    return `<div class="toggle-pill subject-pill active" id="spill-${i}"
-      data-subject="${escHtml(m)}" data-color="${color}"
-      onclick="anToggleSubject('${escHtml(m)}', ${i})"
-      style="border-color:${color};color:${color};background:${color}18;">
-      <span class="swatch" style="background:${color};"></span>${escHtml(m)}
-    </div>`;
-  }).join('');
-}
-
-function anToggleSubject(name, idx) {
-  if (anActiveSubjects.has(name)) {
-    if (anActiveSubjects.size === 1) return; 
-    anActiveSubjects.delete(name);
-    const pill = document.getElementById('spill-'+idx);
-    if (pill) {
-      pill.classList.remove('active');
-      pill.style.background = '';
-      pill.style.color = pill.dataset.color;
-    }
-  } else {
-    anActiveSubjects.add(name);
-    const pill = document.getElementById('spill-'+idx);
-    if (pill) {
-      pill.classList.add('active');
-      pill.style.background = pill.dataset.color + '18';
-      pill.style.color = pill.dataset.color;
-    }
-  }
-  anRender();
-}
-
-function anSetMode(mode) {
-  anMode = mode;
-  document.getElementById('an-mode-raw').classList.toggle('active', mode === 'raw');
-  document.getElementById('an-mode-weekly').classList.toggle('active', mode === 'weekly');
-  anRender();
-}
-
-function anUpdateGoal(val) {
-  anGoal = Number(val);
-  document.getElementById('an-goal-display').textContent = val + '%';
-  anRender();
-}
-
-function anRender() {
-  const materiaFilter = document.getElementById('an-materia-sel').value;
-  const conteudoFilter = document.getElementById('an-conteudo-sel').value;
-
-  const allPts = anBuildPoints(materiaFilter, conteudoFilter)
-    .filter(p => anActiveSubjects.has(p.materia));
-
-  if (!allPts.length) {
-    anShowNoData(true); anDestroyChart(); return;
-  }
-  anShowNoData(false);
-
-  if (anMode === 'weekly') {
-    anRenderWeeklyChart(allPts, materiaFilter);
-  } else {
-    anRenderRawChart(allPts, materiaFilter, conteudoFilter);
-  }
-
-  anRenderWeeklyTable(allPts);
-  if(document.getElementById('page-analytics').classList.contains('active')) {
-     anRenderTopConteudos(allPts);
-  }
-  anRenderPeriodSummary(allPts);
-}
-
-function anShowNoData(show) {
-  document.getElementById('an-no-data').style.display = show ? 'flex' : 'none';
-  document.getElementById('an-main-chart-wrap').style.display = show ? 'none' : 'block';
-}
-
-function anRenderRawChart(pts, materiaFilter, conteudoFilter) {
-  const useConteudo = conteudoFilter !== '__all__' || materiaFilter !== '__all__';
-  const keyFn = useConteudo ? p => `${p.materia} › ${p.conteudo}` : p => p.materia;
-
-  const grouped = anGroupBy(pts, keyFn);
-  const keys = Object.keys(grouped);
-
-  const allDatesSet = new Set();
-  pts.forEach(p => allDatesSet.add(p.dateStr));
-  const allDates = [...allDatesSet];
-
-  const datasets = keys.map((k, i) => {
-    const color = anColorForKey(k, i);
-    const data = grouped[k].map(p => ({ x: p.dateStr, y: p.perc }));
-    return {
-      label: k,
-      data,
-      borderColor: color,
-      backgroundColor: color + '22',
-      pointBackgroundColor: color,
-      pointRadius: 5,
-      pointHoverRadius: 7,
-      tension: 0.35,
-      fill: false,
-      borderWidth: 2.5,
-    };
-  });
-
-  if (allDates.length) {
-    datasets.push({
-      label: `Meta (${anGoal}%)`,
-      data: allDates.map(d => ({ x: d, y: anGoal })),
-      borderColor: '#C0392B',
-      borderDash: [6, 4],
-      borderWidth: 1.5,
-      pointRadius: 0,
-      fill: false,
-      tension: 0,
-      backgroundColor: 'transparent',
-    });
-  }
-
-  document.getElementById('an-chart-subtitle').textContent =
-    `Últimos 5 registros por ${useConteudo ? 'conteúdo' : 'matéria'}`;
-
-  anBuildChart({
-    type: 'line',
-    labels: allDates,
-    datasets,
-    xLabel: 'Data',
-  });
-}
-
-function anRenderWeeklyChart(pts, materiaFilter) {
-  const bySubject = {};
-  pts.forEach(p => {
-    if (!bySubject[p.materia]) bySubject[p.materia] = [];
-    bySubject[p.materia].push(p);
-  });
-
-  const allWeekKeys = new Set();
-  const weekDataBySubject = {};
-  Object.entries(bySubject).forEach(([m, mPts]) => {
-    const weeks = anWeeklyAverage(mPts);
-    weekDataBySubject[m] = weeks;
-    weeks.forEach(w => allWeekKeys.add(isoWeekKey(w.date) + '|' + w.label));
-  });
-
-  const sortedWeeks = [...allWeekKeys]
-    .sort((a, b) => a.localeCompare(b))
-    .map(k => k.split('|')[1]);
-
-  const datasets = Object.entries(weekDataBySubject).map(([m, weeks], i) => {
-    const color = anColorForKey(m, i);
-    const weekMap = {};
-    weeks.forEach(w => { weekMap[w.label] = w.perc; });
-    return {
-      label: m,
-      data: sortedWeeks.map(lbl => weekMap[lbl] ?? null),
-      borderColor: color,
-      backgroundColor: color + '22',
-      pointBackgroundColor: color,
-      pointRadius: 5,
-      pointHoverRadius: 7,
-      tension: 0.35,
-      fill: false,
-      borderWidth: 2.5,
-      spanGaps: true,
-    };
-  });
-
-  if (sortedWeeks.length) {
-    datasets.push({
-      label: `Meta (${anGoal}%)`,
-      data: sortedWeeks.map(() => anGoal),
-      borderColor: '#C0392B',
-      borderDash: [6, 4],
-      borderWidth: 1.5,
-      pointRadius: 0,
-      fill: false,
-      tension: 0,
-      backgroundColor: 'transparent',
-    });
-  }
-
-  document.getElementById('an-chart-subtitle').textContent = 'Média semanal por matéria';
-
-  anBuildChart({
-    type: 'line',
-    labels: sortedWeeks,
-    datasets,
-    xLabel: 'Semana (início)',
-  });
-}
-
-function anBuildChart({ labels, datasets, xLabel }) {
-  const ctx = document.getElementById('an-main-chart').getContext('2d');
-  if (anChart) { anChart.destroy(); anChart = null; }
-
-  anChart = new Chart(ctx, {
-    type: 'line',
-    data: { labels, datasets },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      interaction: { mode: 'index', intersect: false },
-      plugins: {
-        legend: {
-          display: true,
-          position: 'top',
-          labels: {
-            font: { family: "'DM Sans', sans-serif", size: 12 },
-            color: '#6B6560',
-            boxWidth: 14,
-            padding: 14,
-            usePointStyle: true,
-            pointStyle: 'circle',
-            filter: item => item.text !== `Meta (${anGoal}%)`,
-          }
-        },
-        tooltip: {
-          backgroundColor: '#1A1714',
-          titleColor: '#fff',
-          bodyColor: '#ccc',
-          padding: 12,
-          cornerRadius: 8,
-          titleFont: { family: "'DM Sans', sans-serif", size: 13, weight: '600' },
-          bodyFont: { family: "'DM Sans', sans-serif", size: 12 },
-          callbacks: {
-            title: items => items[0].label,
-            label: item => {
-              if (item.dataset.borderDash) return ` Meta: ${item.parsed.y}%`;
-              return ` ${item.dataset.label}: ${item.parsed.y}%`;
-            },
-            afterBody: items => {
-              const realItems = items.filter(i => !i.dataset.borderDash);
-              const goal = anGoal;
-              return realItems.map(i => {
-                const diff = i.parsed.y - goal;
-                return diff >= 0 ? `  ✅ +${diff}pp acima da meta` : `  ⚠️ ${Math.abs(diff)}pp abaixo da meta`;
-              });
-            }
-          }
-        },
-      },
-      scales: {
-        x: {
-          grid: { color: '#E2DDD4', lineWidth: 1 },
-          ticks: { font: { family: "'DM Sans',sans-serif", size: 11 }, color: '#9E9890', maxRotation: 40 },
-          title: { display: true, text: xLabel, font: { size: 11 }, color: '#9E9890' }
-        },
-        y: {
-          min: 0, max: 100,
-          grid: { color: '#E2DDD4', lineWidth: 1 },
-          ticks: {
-            font: { family: "'DM Mono',monospace", size: 11 }, color: '#9E9890',
-            callback: v => v + '%', stepSize: 20
-          },
-          title: { display: true, text: 'Aproveitamento', font: { size: 11 }, color: '#9E9890' }
-        }
-      }
-    }
-  });
-}
-
-function anDestroyChart() {
-  if (anChart) { anChart.destroy(); anChart = null; }
-}
-
-function anColorForKey(key, idx) {
-  const pillsWrap = document.getElementById('an-subject-pills');
-  const pills = pillsWrap ? pillsWrap.querySelectorAll('[data-subject]') : [];
-  for (const pill of pills) {
-    if (key === pill.dataset.subject || key.startsWith(pill.dataset.subject + ' ›')) {
-      return pill.dataset.color;
-    }
-  }
-  return AN_PALETTE[idx % AN_PALETTE.length];
-}
-
-function anRenderWeeklyTable(pts) {
-  const el = document.getElementById('an-weekly-table-wrap');
-  const weeks = anWeeklyAverage(pts);
-  if (!weeks.length) { el.innerHTML = '<div class="no-data-chart"><div class="ico">📅</div><p>Sem dados</p></div>'; return; }
-  const recent = weeks.slice(-8);
-  el.innerHTML = `<table class="weekly-table">
-    <thead><tr><th>Semana</th><th>Aproveit.</th><th>vs Meta</th></tr></thead>
-    <tbody>${recent.map(w => {
-      const diff = w.perc - anGoal;
-      const badge = diff >= 0
-        ? `<span style="color:var(--green);font-weight:600;">+${diff}pp</span>`
-        : `<span style="color:var(--danger);font-weight:600;">${diff}pp</span>`;
-      const percColor = w.perc >= 80 ? 'var(--green)' : w.perc >= 60 ? 'var(--warn)' : 'var(--danger)';
-      return `<tr>
-        <td style="color:var(--text2);font-size:12px;">${w.label}</td>
-        <td><span style="font-family:'DM Mono',monospace;font-weight:600;color:${percColor};">${w.perc}%</span></td>
-        <td>${badge}</td>
-      </tr>`;
-    }).join('')}</tbody>
-  </table>`;
-}
-
-function anRenderTopConteudos(pts) {
-  const el = document.getElementById('an-top-conteudos-wrap');
-  const byConteudo = {};
-  pts.forEach(p => {
-    const k = `${p.materia} › ${p.conteudo}`;
-    if (!byConteudo[k]) byConteudo[k] = { sum: 0, n: 0, last: p.perc };
-    byConteudo[k].sum += p.perc;
-    byConteudo[k].n++;
-    byConteudo[k].last = p.perc;
-  });
-  const sorted = Object.entries(byConteudo)
-    .map(([k, v]) => ({ key: k, avg: Math.round(v.sum / v.n), last: v.last, n: v.n }))
-    .sort((a, b) => b.avg - a.avg)
-    .slice(0, 6);
-
-  if (!sorted.length) { el.innerHTML = '<div class="no-data-chart"><div class="ico">🏆</div><p>Sem dados</p></div>'; return; }
-  el.innerHTML = sorted.map((item, i) => {
-    const color = item.avg >= 80 ? 'var(--green)' : item.avg >= 60 ? 'var(--warn)' : 'var(--danger)';
-    const fillClass = item.avg >= 80 ? 'fill-green' : item.avg >= 60 ? 'fill-warn' : 'fill-danger';
-    return `<div style="margin-bottom:12px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
-        <div style="font-size:12px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:70%;" title="${escHtml(item.key)}">${i+1}. ${escHtml(state.materias.flatMap(m => m.conteudos).find(c => (c.id || c.name || c) === item.key.split(' › ')[1])?.name || item.key.split(' › ')[1])}</div>
-        <div style="font-family:'DM Mono',monospace;font-size:12px;color:${color};font-weight:700;">${item.avg}%</div>
-      </div>
-      <div class="progress-bar-bg"><div class="progress-bar-fill ${fillClass}" style="width:${item.avg}%;"></div></div>
-    </div>`;
-  }).join('');
-}
-
-function anRenderPeriodSummary(pts) {
-  const el = document.getElementById('an-period-summary-wrap');
-  if (!pts.length) { el.innerHTML = '<div class="no-data-chart"><div class="ico">📊</div><p>Sem dados</p></div>'; return; }
-
-  const percs = pts.map(p => p.perc);
-  const avg = Math.round(percs.reduce((a, b) => a + b, 0) / percs.length);
-  const best = Math.max(...percs);
-  const worst = Math.min(...percs);
-  const aboveGoal = percs.filter(p => p >= anGoal).length;
-  const abovePct = Math.round(aboveGoal / percs.length * 100);
-  const trend = pts.length >= 2 ? pts[pts.length-1].perc - pts[pts.length-2].perc : null;
-  const avgColor = avg >= 80 ? 'var(--green)' : avg >= 60 ? 'var(--warn)' : 'var(--danger)';
-
-  el.innerHTML = `
-    <div style="display:flex;flex-direction:column;gap:12px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;">
-        <span style="font-size:12px;color:var(--text2);">Média do período</span>
-        <span style="font-family:'DM Mono',monospace;font-size:18px;font-weight:700;color:${avgColor};">${avg}%</span>
-      </div>
-      <div style="display:flex;justify-content:space-between;align-items:center;">
-        <span style="font-size:12px;color:var(--text2);">Melhor resultado</span>
-        <span style="font-family:'DM Mono',monospace;font-size:14px;font-weight:600;color:var(--green);">🏆 ${best}%</span>
-      </div>
-      <div style="display:flex;justify-content:space-between;align-items:center;">
-        <span style="font-size:12px;color:var(--text2);">Pior resultado</span>
-        <span style="font-family:'DM Mono',monospace;font-size:14px;font-weight:600;color:var(--danger);">📉 ${worst}%</span>
-      </div>
-      <div style="display:flex;justify-content:space-between;align-items:center;">
-        <span style="font-size:12px;color:var(--text2);">Sessões que bateram a meta</span>
-        <span style="font-family:'DM Mono',monospace;font-size:14px;font-weight:600;color:var(--accent);">${abovePct}%</span>
-      </div>
-      ${trend !== null ? `<div style="display:flex;justify-content:space-between;align-items:center;">
-        <span style="font-size:12px;color:var(--text2);">Tendência recente</span>
-        <span style="font-size:13px;font-weight:700;color:${trend>=0?'var(--green)':'var(--danger)'};">${trend>=0?'↗ +':'↘ '}${Math.abs(trend)}pp</span>
-      </div>` : ''}
-      <div style="display:flex;justify-content:space-between;align-items:center;">
-        <span style="font-size:12px;color:var(--text2);">Total de registros</span>
-        <span style="font-family:'DM Mono',monospace;font-size:14px;color:var(--text);">${pts.length}</span>
-      </div>
-    </div>`;
-}
 // ══════════════════════════════════════════════════
 //  MOTOR DE LEI SECA
 // ══════════════════════════════════════════════════
@@ -3362,13 +2944,12 @@ function renderDailyMission() {
 
     let html = `<div class="section-label" style="margin-bottom:12px;">📋 Minhas Missões de Hoje</div>`;
     html += `<div class="missions-wrapper">`;
-
     const hojeDataStr = new Date().toLocaleDateString('pt-BR');
 
     materiasDeHoje.forEach(mName => {
         if (!mName || !mName.trim()) return;
 
-        // 1. PRIMEIRO: Calculamos qual a sugestão para esta matéria
+        // 1. PRIMEIRO: Calculamos a sugestão
         let sugerido = { ct: "Estudo Geral", motivo: "Tópico inicial (Avanço)", score: -1, isEmergency: false };
         const matObj = state.materias.find(m => m.name.toLowerCase() === mName.toLowerCase());
 
@@ -3380,9 +2961,8 @@ function renderDailyMission() {
                 let isEmergency = false;
                 let motivoText = "";
 
-                if (!agg) { 
-                    score = 100 - idx; motivoText = "Tópico novo";
-                } else {
+                if (!agg) { score = 100 - idx; motivoText = "Tópico novo"; }
+                else {
                     const perc = agg.totalQs > 0 ? Math.round((agg.correctQs / agg.totalQs) * 100) : 100;
                     const dias = agg.lastStudied ? Math.floor((Date.now() - new Date(agg.lastStudied)) / 86400000) : 30;
                     if (agg.totalQs > 0 && perc < 60) { score = 1000 + dias; isEmergency = true; motivoText = `🚨 Rendimento Crítico (${perc}%)`; }
@@ -3397,7 +2977,7 @@ function renderDailyMission() {
             });
         }
 
-        // 2. SEGUNDO: Agora verificamos se JÁ ESTUDOU aquele tópico sugerido
+        // 2. SEGUNDO: Agora verificamos se JÁ ESTUDOU aquele tópico específico
         const jaEstudou = state.sessions.some(s => 
             s.materia.toLowerCase() === mName.toLowerCase() && 
             new Date(s.date).toLocaleDateString('pt-BR') === hojeDataStr &&
@@ -3405,7 +2985,6 @@ function renderDailyMission() {
         );
 
         const isIgnored = localStorage.getItem(`aprovado_ignore_${mName}_${hojeDataStr}`) === 'true';
-
         let statusLabel = jaEstudou ? '✅ Concluído' : (isIgnored ? '🙈 Ignorado' : '⏳ Pendente');
         let cardClass = jaEstudou ? 'completed' : (isIgnored ? 'ignored' : (sugerido.isEmergency ? 'emergency' : (sugerido.score > 60 ? 'priority' : '')));
 
