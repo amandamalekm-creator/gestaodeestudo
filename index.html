@@ -1346,47 +1346,51 @@ function renderModalCtList() {
 
 // 5. SAVE SESSION COM AGGREGATES
 async function saveSession() {
-  for (let i=0; i<modalConteudos.length; i++) {
-    const ct=modalConteudos[i];
-    if (!ct.onlyTheory && ct.correct>ct.total) { showToast(`"${ct.name}": acertos não podem ser maiores que o total.`); return; }
-  }
+    for (let i=0; i<modalConteudos.length; i++) {
+        const ct = modalConteudos[i];
+        if (!ct.onlyTheory && ct.correct > ct.total) { 
+            showToast(`"${ct.name}": acertos não podem ser maiores que o total.`); 
+            return; 
+        }
+    }
 
-  // Captura o tempo modificado diretamente das caixas de edição do Modal
-  const editH = parseInt(document.getElementById('modal-h').value) || 0;
-  const editM = parseInt(document.getElementById('modal-m').value) || 0;
-  const editS = parseInt(document.getElementById('modal-s').value) || 0;
-  const finalDuration = (editH * 3600) + (editM * 60) + editS;
+    const editH = parseInt(document.getElementById('modal-h').value) || 0;
+    const editM = parseInt(document.getElementById('modal-m').value) || 0;
+    const editS = parseInt(document.getElementById('modal-s').value) || 0;
+    const finalDuration = (editH * 3600) + (editM * 60) + editS;
 
-  const novaSessao = {
-    id: crypto.randomUUID(),
-    date: new Date().toISOString(),
-    materia: currentMateria,
-    duration: finalDuration, // Usa o tempo ajustado!
-    manual: false,
-    obs: '',
-    conteudos: modalConteudos.map(c=>({c}))
-  };
+    const novaSessao = {
+        id: crypto.randomUUID(),
+        date: new Date().toISOString(),
+        materia: currentMateria,
+        duration: finalDuration,
+        manual: false,
+        obs: '',
+        // AQUI A CORREÇÃO: Mapeia o objeto corretamente
+        conteudos: modalConteudos.map(c => ({
+            id: c.id || crypto.randomUUID(),
+            name: c.name,
+            total: c.total,
+            correct: c.correct,
+            onlyTheory: c.onlyTheory
+        }))
+    };
 
-  if ((!novaSessao.conteudos || !novaSessao.conteudos.length) && !novaSessao.obs){
-    showToast("Adicione conteúdo ou observação.");
-    return;
-  }
+    if ((!novaSessao.conteudos || !novaSessao.conteudos.length) && !novaSessao.obs){
+        showToast("Adicione conteúdo ou observação.");
+        return;
+    }
 
-  novaSessao.conteudos = novaSessao.conteudos.map(c=>({
-    c,
-    id: c.id || crypto.randomUUID()
-  }));
+    state.sessions.unshift(novaSessao);
+    updateAggregates(novaSessao);
+    await addSessionDB(novaSessao); 
+    await saveAggregatesDB();
+    notify();
 
-  state.sessions.unshift(novaSessao);
-  updateAggregates(novaSessao);
-  await addSessionDB(novaSessao); 
-  await saveAggregatesDB();
-  notify();
-
-  resetTimerUI();
-  document.getElementById('finish-modal').classList.remove('open');
-  renderCronometroPage();
-  showToast('Sessão salva na Nuvem V4! 🎉');
+    resetTimerUI();
+    document.getElementById('finish-modal').classList.remove('open');
+    renderCronometroPage();
+    showToast('Sessão salva na Nuvem V4! 🎉');
 }
 
 function resetTimerUI() {
