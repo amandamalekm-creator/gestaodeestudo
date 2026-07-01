@@ -308,11 +308,39 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
     align-items: center; 
     font-size: 13.5px; 
 }
-/* Ajuste da linha de dados */
-.rev-row { display: flex; padding: 10px 24px; border-bottom: 1px solid var(--border); align-items: center; font-size: 13.5px; }
-/* Garante que o badge e a data dentro da linha tenham o mesmo alinhamento */
-.rev-row .rev-col-badge { width: 140px; display: flex; justify-content: center; }
-.rev-row .rev-col-date { width: 140px; display: flex; justify-content: center; }
+
+/* Garante que o badge e a data dentro da linha tenham o mesmo alinhamento e empilhem itens */
+.rev-row .rev-col-badge, 
+.rev-row .rev-col-date { 
+    width: 140px; 
+    display: flex; 
+    flex-direction: column; 
+    align-items: center; 
+    justify-content: center;
+    gap: 4px; 
+}
+
+/* Estilo do indicador de dias sem estudar */
+.rev-days-since { 
+    font-size: 10.5px; 
+    color: var(--text3); 
+    font-family: 'DM Mono', monospace;
+    text-transform: lowercase;
+}
+
+/* Botão de exclusão "✕" minimalista */
+.btn-rev-delete { 
+    background: none; 
+    border: none; 
+    cursor: pointer; 
+    color: var(--text3); 
+    font-size: 15px; 
+    padding: 4px 8px; 
+    transition: 0.2s;
+}
+.btn-rev-delete:hover { 
+    color: var(--danger); 
+}
 .rev-row:hover { background: #faf9f7; }
 .rev-row:last-child { border-bottom: none; }
 
@@ -1883,134 +1911,6 @@ function renderDashboard() {
   renderInsights();
 }
 
-function renderAnalytics() {
-    const matFilter = document.getElementById('an-materia-filter');
-    const ctFilter = document.getElementById('an-conteudo-filter');
-
-    // 1. Popula Filtro de Matéria
-    if (matFilter.options.length === 1) {
-        state.materias.forEach(m => {
-            const opt = document.createElement('option');
-            opt.value = m.name; opt.textContent = m.name;
-            matFilter.appendChild(opt);
-        });
-    }
-
-    const selectedMat = matFilter.value;
-
-    // 2. Mapeamento robusto: ID do conteúdo -> { nome, materia, cor }
-    const nomeMap = {};
-    const materiaColors = {};
-    const colorPalette = ['#2D5A3D', '#C8873A', '#3A7DC8', '#8E44AD', '#E74C3C', '#16A085', '#D35400', '#2C3E50'];
-    
-    state.materias.forEach((m, idx) => {
-        materiaColors[m.name] = colorPalette[idx % colorPalette.length];
-        if (m.conteudos) {
-            m.conteudos.forEach(c => {
-                // Usa o ID único se existir, senão usa o nome como ID
-                const id = c.id || c.name || c;
-                nomeMap[id] = { name: c.name || c, materia: m.name, cor: colorPalette[idx % colorPalette.length] };
-            });
-        }
-    });
-
-    // 3. Popula Filtro de Conteúdo (filtrado pela matéria)
-    const currentCt = ctFilter.value;
-    ctFilter.innerHTML = '<option value="todos">Todos os Conteúdos</option>';
-    Object.keys(nomeMap).forEach(id => {
-        if (selectedMat === 'todos' || nomeMap[id].materia === selectedMat) {
-            const opt = document.createElement('option');
-            opt.value = id; opt.textContent = nomeMap[id].name;
-            if (id === currentCt) opt.selected = true;
-            ctFilter.appendChild(opt);
-        }
-    });
-    
-    const selectedCt = ctFilter.value;
-
-    // 4. Filtra IDs (Verifica se o ID existe no mapa antes de filtrar)
-    const filteredIds = Object.keys(state.aggregates.conteudos).filter(id => {
-        const info = nomeMap[id];
-        if (!info) return false; // ID não cadastrado no edital
-        const matchMat = selectedMat === 'todos' || info.materia === selectedMat;
-        const matchCt = selectedCt === 'todos' || id === selectedCt;
-        return matchMat && matchCt;
-    });
-
-    // 5. Renderiza Gráfico de Linha (Evolução)
-    const canvasEvol = document.getElementById('an-evolution-chart');
-    if (canvasEvol) {
-        const datasetsEvol = filteredIds.map(id => {
-            const agg = state.aggregates.conteudos[id];
-            const info = nomeMap[id];
-            return {
-                label: info.name,
-                data: agg.last5.map((entry, idx) => ({ x: `Sessão ${idx+1}`, y: Math.round(entry.perc * 100) })),
-                borderColor: info.cor,
-                backgroundColor: info.cor,
-                tension: 0.3
-            };
-        }).filter(ds => ds.data.length > 0);
-
-        if (window.evolutionChart) window.evolutionChart.destroy();
-        window.evolutionChart = new Chart(canvasEvol.getContext('2d'), {
-            type: 'line',
-            data: { datasets: datasetsEvol },
-            options: { responsive: true, maintainAspectRatio: false, scales: { y: { min: 0, max: 100 } } }
-        });
-    }
-
-    // 6. Renderiza Gráfico de Bolhas (Matriz)
-    const canvasQuad = document.getElementById('an-quadrant-chart');
-    if (canvasQuad) {
-        const dataQuad = filteredIds.map(id => ({
-            x: state.aggregates.conteudos[id].totalTime / 3600,
-            y: (state.aggregates.conteudos[id].correctQs / (state.aggregates.conteudos[id].totalQs || 1)) * 100,
-            label: nomeMap[id].name,
-            cor: nomeMap[id].cor
-        }));
-
-        if (window.quadrantChart) window.quadrantChart.destroy();
-        window.quadrantChart = new Chart(canvasQuad.getContext('2d'), {
-            type: 'scatter',
-            data: { 
-                datasets: [{ 
-                    label: 'Tópicos', 
-                    data: dataQuad, 
-                    pointBackgroundColor: dataQuad.map(d => d.cor),
-                    pointRadius: 8 
-                }] 
-            },
-            options: { 
-                responsive: true, maintainAspectRatio: false,
-                plugins: { tooltip: { callbacks: { label: (c) => `${c.raw.label}: ${Math.round(c.raw.y)}%` } } }
-            }
-        });
-    }
-
-    // 7. Renderiza Tabela de Ação
-    const tbody = document.getElementById('an-action-body');
-    if (tbody) {
-        tbody.innerHTML = filteredIds.map(id => {
-            const agg = state.aggregates.conteudos[id];
-            const info = nomeMap[id];
-            const perc = agg.totalQs > 0 ? Math.round((agg.correctQs / agg.totalQs) * 100) : 0;
-            const horas = agg.totalTime / 3600;
-            
-            let rec = "Manutenção Constante 📘";
-            if (perc < 60 && horas > 5) rec = "Trocar Método ⚠️";
-            else if (perc < 60 && horas <= 5) rec = "Prioridade Máxima 🚨";
-            else if (perc > 85) rec = "Domínio ✅";
-            
-            return `<tr>
-                <td><div style="font-size:9px; color:#999;">${info.materia}</div><strong>${info.name}</strong></td>
-                <td><span class="badge">${perc}%</span></td>
-                <td>${calcTrend(id) === '↑' ? '📈' : '→'}</td>
-                <td><strong>${rec}</strong></td>
-            </tr>`;
-        }).join('');
-    }
-}
   
 function renderGeralStats() {
   const totals = getAggTotal();
@@ -2452,10 +2352,15 @@ async function toggleLeiCheck(lIdx, bIdx) {
   
   lei.blocos[bIdx].done = !lei.blocos[bIdx].done;
   
-  if (lei.blocos[bIdx].done) {
+ if (lei.blocos[bIdx].done) {
     lei.historico.push(new Date().toISOString()); 
   } else {
-    lei.historico.pop(); // Remove a última se desmarcar
+    // Remove a data mais recente inserida HOJE, evitando apagar a contagem de outros dias/blocos
+    const hojeStr = new Date().toLocaleDateString('pt-BR');
+    const indexParaRemover = lei.historico.findLastIndex(dataStr => new Date(dataStr).toLocaleDateString('pt-BR') === hojeStr);
+    if (indexParaRemover !== -1) {
+       lei.historico.splice(indexParaRemover, 1);
+    }
   }
   
   // ALTERAÇÃO: Retenção de 3 Meses (90 dias)
@@ -2743,9 +2648,7 @@ function renderRevisao() {
     const listEl = document.getElementById('rev-content-list');
     
     if (!tabsEl || !listEl) return;
-
     if (!state.materias || state.materias.length === 0) return;
-
     if (revCurrentMateriaIndex >= state.materias.length) revCurrentMateriaIndex = 0;
 
     // 1. Desenha abas
@@ -2763,7 +2666,6 @@ function renderRevisao() {
     if (conteudos.length === 0) {
         listEl.innerHTML = '<div style="padding:20px; text-align:center;">Nenhum tópico cadastrado.</div>';
     } else {
-        // AQUI ESTÁ A CORREÇÃO: A tabela é preenchida dentro do bloco correto
         listEl.innerHTML = conteudos.map((ct, ctIdx) => {
             const ctName = ct.name || ct;
             const ctId = ct.id || ct.name || ct;
@@ -2774,6 +2676,20 @@ function renderRevisao() {
             const lastDate = (agg && agg.lastStudied) ? new Date(agg.lastStudied).toLocaleDateString('pt-BR') : '—';
             const badgeHtml = percVal !== null ? `<span class="rev-badge ${percVal >= 80 ? 'rb-bom' : percVal >= 60 ? 'rb-medio' : 'rb-ruim'}">${percVal}%</span>` : '—';
 
+            // Cálculo exato de dias passados desde o último estudo
+            let daysText = "—";
+            if (agg && agg.lastStudied) {
+                const now = new Date();
+                now.setHours(0,0,0,0);
+                
+                const lastDateObj = new Date(agg.lastStudied);
+                lastDateObj.setHours(0,0,0,0);
+                
+                const diffTime = Math.abs(now - lastDateObj);
+                const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                daysText = diffDays === 0 ? "hoje" : `há ${diffDays} dia(s)`;
+            }
+
             return `
                 <div class="rev-row ${isHidden ? 'is-hidden' : ''}" draggable="true" data-ctindex="${ctIdx}" ondragstart="iniciarArrastoCt(event)" ondragover="permitirSoltarCt(event)" ondragleave="sairAreaSoltarCt(event)" ondrop="soltarCt(event)" ondragend="finalizarArrastoCt(event)">
                     <div class="rev-col-name">
@@ -2781,10 +2697,15 @@ function renderRevisao() {
                         <span>${escHtml(ctName)}</span>
                     </div>
                     <div class="rev-col-badge">${badgeHtml}</div>
-                    <div class="rev-col-date">${lastDate}</div>
+                    
+                    <div class="rev-col-date">
+                        <span>${lastDate}</span>
+                        <span class="rev-days-since">${daysText}</span>
+                    </div>
+                    
                     <div class="rev-row-actions">
                         <button class="btn-ghost btn-sm" onclick="editConteudoRev(${revCurrentMateriaIndex}, ${ctIdx})">✏️</button>
-                        <button class="btn-ghost btn-sm" style="color:var(--danger);" onclick="deleteConteudoRev(${revCurrentMateriaIndex}, ${ctIdx})">🗑️</button>
+                        <button class="btn-rev-delete" onclick="deleteConteudoRev(${revCurrentMateriaIndex}, ${ctIdx})" title="Excluir">✕</button>
                     </div>
                 </div>`;
         }).join('');
@@ -2933,11 +2854,6 @@ async function toggleRevContent(mIdx, ctIdx) {
   await saveMateriasDB();
   renderRevisao();
   showToast(conteudos[ctIdx].hidden ? "Tópico ocultado." : "Tópico reativado.");
-}
-
-function setRevMateria(idx) {
-  revCurrentMateriaIndex = idx;
-  renderRevisao();
 }
 
 function renderScheduleSetup() {
