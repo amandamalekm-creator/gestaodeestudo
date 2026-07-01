@@ -296,8 +296,8 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
 
 /* Colunas (Aplicado no HTML) */
 .rev-col-name { flex: 1; display: flex; align-items: center; }
-.rev-col-badge { width: 120px; text-align: center; display: flex; justify-content: center; }
-.rev-col-date { width: 120px; text-align: center; display: flex; justify-content: center; }
+.rev-col-badge { width: 140px; text-align: center; display: flex; justify-content: center; }
+.rev-col-date { width: 140px; text-align: center; display: flex; justify-content: center; }
 .rev-row-actions { width: 80px; display: flex; justify-content: flex-end; }
 
 /* Linha de conteúdo */
@@ -709,12 +709,12 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
       <button class="btn-ghost" style="padding: 4px 12px; border: none; font-size: 22px; cursor: pointer; color: var(--text3);" onclick="document.getElementById('rev-tabs').scrollBy({left: 250, behavior: 'smooth'})">›</button>
     </div>
 
-    <div class="card" style="padding: 0; overflow: hidden; border-radius: 8px;">
+   <div class="card" style="padding: 0; overflow: hidden; border-radius: 8px;">
       <div class="rev-table-header">
         <div class="rev-col-name">Tópico do Edital</div>
         <div class="rev-col-badge">Desempenho</div>
         <div class="rev-col-date">Último Estudo</div>
-        <div style="width: 70px;"></div>
+        <div class="rev-row-actions"></div>
       </div>
       <div id="rev-content-list" style="max-height: 55vh; overflow-y: auto; scrollbar-width: thin;">
          </div>
