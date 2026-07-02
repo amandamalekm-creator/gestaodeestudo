@@ -296,7 +296,7 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
 
 /* Colunas (Aplicado no HTML) */
 .rev-col-name { flex: 1; display: flex; align-items: center; }
-.rev-col-badge { width: 140px; text-align: center; display: flex; justify-content: center; }
+.rev-col-badge { width: 180px; text-align: center; display: flex; justify-content: center; }
 .rev-col-date { width: 140px; text-align: center; display: flex; justify-content: center; }
 .rev-row-actions { width: 80px; display: flex; justify-content: flex-end; }
 
@@ -312,13 +312,14 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
 /* Garante que o badge e a data dentro da linha tenham o mesmo alinhamento e empilhem itens */
 .rev-row .rev-col-badge, 
 .rev-row .rev-col-date { 
-    width: 140px; 
     display: flex; 
     flex-direction: column; 
     align-items: center; 
     justify-content: center;
     gap: 4px; 
 }
+.rev-row .rev-col-badge { width: 180px; }
+.rev-row .rev-col-date { width: 140px; }
 
 /* Estilo do indicador de dias sem estudar */
 .rev-days-since { 
@@ -710,9 +711,9 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
     </div>
 
    <div class="card" style="padding: 0; overflow: hidden; border-radius: 8px;">
-      <div class="rev-table-header">
-        <div class="rev-col-name">Tópico do Edital</div>
-        <div class="rev-col-badge">Desempenho</div>
+     <div class="rev-table-header">
+        <div class="rev-col-name">Tópico, Maturidade & Prioridade</div>
+        <div class="rev-col-badge">Desempenho, Volume & Tendência</div>
         <div class="rev-col-date">Último Estudo</div>
         <div class="rev-row-actions"></div>
       </div>
@@ -797,8 +798,13 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 const auth = firebase.auth();
 
-let currentUser = null;
+// Ativa o cache local (Economiza milhares de Reads no Firebase e funciona offline)
+db.enablePersistence({ synchronizeTabs: true })
+  .catch((err) => {
+    console.error("Falha ao ativar o cache offline do Firebase:", err);
+  });
 
+let currentUser = null;
 // 1. STATE REESTRUTURADO
 let state = { 
   materias: [], sessions: [], leis: [], 
@@ -2652,7 +2658,7 @@ function renderRevisao() {
     if (!state.materias || state.materias.length === 0) return;
     if (revCurrentMateriaIndex >= state.materias.length) revCurrentMateriaIndex = 0;
 
-    // 1. Desenha abas (COM ARRASTAR E SOLTAR DE MATÉRIAS)
+    // 1. Desenha abas
     tabsEl.innerHTML = state.materias.map((m, i) => `
         <button class="rev-tab-btn ${i === revCurrentMateriaIndex ? 'active' : ''}" 
             onclick="setRevMateria(${i})"
@@ -2669,7 +2675,7 @@ function renderRevisao() {
         </button>
     `).join('');
 
-    // 2. Desenha a tabela com alinhamento
+    // 2. Desenha a tabela com todos os dados estratégicos (Sem previsão de datas)
     const mat = state.materias[revCurrentMateriaIndex];
     const conteudos = mat.conteudos || [];
 
@@ -2686,8 +2692,28 @@ function renderRevisao() {
             const lastDate = (agg && agg.lastStudied) ? new Date(agg.lastStudied).toLocaleDateString('pt-BR') : '—';
             const badgeHtml = percVal !== null ? `<span class="rev-badge ${percVal >= 80 ? 'rb-bom' : percVal >= 60 ? 'rb-medio' : 'rb-ruim'}">${percVal}%</span>` : '—';
 
-            // Cálculo exato de dias passados desde o último estudo
+            // 1. Tendência (Evolução)
+            const trendStr = calcTrend(ctId);
+            const trendIcon = trendStr === '↑' ? '<span style="color:var(--green)">↑</span>' : (trendStr === '↓' ? '<span style="color:var(--danger)">↓</span>' : '<span style="color:var(--text3)">→</span>');
+
+            // 2. Volume de Questões
+            const volText = (agg && agg.totalQs > 0) ? `${agg.correctQs}/${agg.totalQs} qs` : 'Sem questões';
+
+            // 3. Maturidade (Fase de Estudo)
+            let faseTag = '<span style="font-size:10px; background:var(--surface2); color:var(--text2); padding:2px 6px; border-radius:4px;">📘 Teoria / Inédito</span>';
+            if (agg && agg.totalQs > 0) {
+                if (agg.totalQs > 30) {
+                    faseTag = percVal >= 80 
+                        ? '<span style="font-size:10px; background:#e8f5ec; color:var(--green); padding:2px 6px; border-radius:4px;">🏆 Domínio Absoluto</span>'
+                        : '<span style="font-size:10px; background:var(--warn-light); color:var(--warn); padding:2px 6px; border-radius:4px;">⚠️ Reforço Necessário</span>';
+                } else {
+                    faseTag = '<span style="font-size:10px; background:var(--accent-light); color:var(--accent); padding:2px 6px; border-radius:4px;">📝 Prática Inicial</span>';
+                }
+            }
+
             let daysText = "—";
+            let prioIcon = "⚪ Aguardando início";
+
             if (agg && agg.lastStudied) {
                 const now = new Date();
                 now.setHours(0,0,0,0);
@@ -2698,9 +2724,17 @@ function renderRevisao() {
                 const diffTime = Math.abs(now - lastDateObj);
                 const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
                 daysText = diffDays === 0 ? "hoje" : `há ${diffDays} dia(s)`;
+
+                // 4. Prioridade Algorítmica (Score focado em alavancar desempenho ruim/médio ou tópicos abandonados)
+                if ((percVal !== null && percVal < 60) || diffDays > 21) {
+                    prioIcon = "🔥 Ação Urgente";
+                } else if ((percVal !== null && percVal < 80) || diffDays > 14) {
+                    prioIcon = "🟡 Atenção";
+                } else {
+                    prioIcon = "✅ Consolidado";
+                }
             }
 
-            // COM ARRASTAR E SOLTAR DE CONTEÚDOS
             return `
                 <div class="rev-row ${isHidden ? 'is-hidden' : ''}" 
                      draggable="true" 
@@ -2712,11 +2746,25 @@ function renderRevisao() {
                      ondragend="finalizarArrastoCt(event)"
                      title="Clique e segure para reordenar"
                      style="cursor: grab;">
-                    <div class="rev-col-name">
-                        <button class="btn-rev-toggle" onclick="toggleRevContent(${revCurrentMateriaIndex}, ${ctIdx})">👁️</button>
-                        <span>${escHtml(ctName)}</span>
+                    
+                    <div class="rev-col-name" style="flex-direction:column; align-items:flex-start; justify-content:center; gap:6px;">
+                        <div style="display:flex; align-items:center;">
+                            <button class="btn-rev-toggle" onclick="toggleRevContent(${revCurrentMateriaIndex}, ${ctIdx})">👁️</button>
+                            <span style="font-weight: 500;">${escHtml(ctName)}</span>
+                        </div>
+                        <div style="padding-left: 28px; display:flex; align-items:center; gap:6px;">
+                            ${faseTag}
+                            <span style="font-size:10px; color:var(--text3); font-weight:600;">${prioIcon}</span>
+                        </div>
                     </div>
-                    <div class="rev-col-badge">${badgeHtml}</div>
+
+                    <div class="rev-col-badge">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            ${badgeHtml}
+                            <span style="font-size:13px; font-weight:bold;">${trendIcon}</span>
+                        </div>
+                        <span style="font-size:10px; color:var(--text3); font-family: 'DM Mono', monospace;">${volText}</span>
+                    </div>
                     
                     <div class="rev-col-date">
                         <span>${lastDate}</span>
