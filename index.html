@@ -2176,46 +2176,32 @@ async function criarCadernoLei() {
   showToast(editingLeiId ? "Caderno atualizado!" : "Caderno criado!");
 }
 
-async function saveLeisDB(leiModificadaId = null, salvarApenasLista = false) {
-  // 1. Prepara a versão leve para o documento principal
+async function saveLeisDB(leiModificadaId = null) {
+  // 1. Salva o estado principal das leis (nomes e status das caixinhas)
+  // Removemos o 'historico' antes de salvar no documento principal para economizar espaço
   const leisLeves = state.leis.map(lei => {
-    const { historico, resto } = lei;
+    const { historico, ...resto } = lei;
     return resto;
   });
 
-  // Salva apenas nomes e caixinhas (1 Gravação)
   await getUserRef().collection('Dados').doc('Leis').set({ 
     lista: leisLeves, 
     metaSemana: state.metaLeiSemana || 20 
   });
 
-  if (salvarApenasLista) return; // <-- VACINA 2.0: Aborta aqui e poupa o Firebase se for só reordenação!
+  // 2. Salva o histórico de cada lei na subcoleção HistoricoLeis
+  for (const lei of state.leis) {
+    // Se passamos um ID, salvamos apenas aquela, caso contrário salvamos todas (garantia total)
+    if (leiModificadaId && lei.id !== leiModificadaId) continue;
 
-  // 2. Salva o histórico de forma inteligente
-  if (leiModificadaId) {
-    // Se sabemos qual lei mudou, salva SÓ ela
-    const lei = state.leis.find(l => l.id === leiModificadaId);
-    if (lei) {
-      if (lei.historico && lei.historico.length > 0) {
-        await getUserRef().collection('HistoricoLeis').doc(lei.id).set({ datas: lei.historico });
-      } else {
-        // CORREÇÃO: Se o histórico zerou, apaga o documento da nuvem para não gerar fantasmas!
-        await getUserRef().collection('HistoricoLeis').doc(lei.id).delete().catch(()=>{});
-      }
-    }
-  } else {
-    // Se for alteração global (ex: criar caderno), varre todas
-    for (const lei of state.leis) {
-      if (lei.historico && lei.historico.length > 0) {
-        await getUserRef().collection('HistoricoLeis').doc(lei.id).set({ datas: lei.historico });
-      } else {
-        // CORREÇÃO: Limpa qualquer histórico órfão
-        await getUserRef().collection('HistoricoLeis').doc(lei.id).delete().catch(()=>{});
-      }
+    if (lei.historico && lei.historico.length > 0) {
+      await getUserRef().collection('HistoricoLeis').doc(lei.id).set({ datas: lei.historico });
+    } else {
+      await getUserRef().collection('HistoricoLeis').doc(lei.id).delete().catch(()=>{});
     }
   }
 }
-
+  
 function renderLeis() {
   const container = document.getElementById('leis-container');
   const selector = document.getElementById('leis-selector');
@@ -2384,8 +2370,9 @@ async function toggleLeiCheck(lIdx, bIdx) {
   }
   
   // A MÁGICA ACONTECE AQUI:
-  renderLeis(); // Desenha o "check" na mesma fração de segundo
-  saveLeisDB(lei.id); // Deixa o Firebase processar no fundo silenciosamente
+  // Forçamos a atualização da UI e salvamos de forma síncrona para garantir
+  renderLeis(); 
+  await saveLeisDB(lei.id); 
 }
 
 // ══════════════════════════════════════════════════
