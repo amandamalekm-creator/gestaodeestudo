@@ -2337,25 +2337,28 @@ async function toggleLeiItemDisabled(lIdx, bIdx) {
   const item = state.leis[lIdx].blocos[bIdx];
   item.disabled = !item.disabled;
   if (item.disabled) item.done = false; 
-  await saveLeisDB(state.leis[lIdx].id); // <-- A vacina aplicada aqui!
-  renderLeis();
+  
+  renderLeis(); // Atualiza a tela imediatamente no clique
+  saveLeisDB(state.leis[lIdx].id); // Salva na nuvem no fundo, sem travar
 }
+
 async function toggleLeiImportant(lIdx, bIdx) {
   const item = state.leis[lIdx].blocos[bIdx];
   item.importante = !item.importante;
-  await saveLeisDB(state.leis[lIdx].id); // <-- A vacina aplicada aqui!
-  renderLeis();
+  
+  renderLeis(); // Atualiza a tela imediatamente no clique
+  saveLeisDB(state.leis[lIdx].id); // Salva na nuvem no fundo, sem travar
 }
+
 async function toggleLeiCheck(lIdx, bIdx) {
   const lei = state.leis[lIdx];
   if (!lei.historico) lei.historico = []; 
   
   lei.blocos[bIdx].done = !lei.blocos[bIdx].done;
   
- if (lei.blocos[bIdx].done) {
+  if (lei.blocos[bIdx].done) {
     lei.historico.push(new Date().toISOString()); 
   } else {
-    // Remove a data mais recente inserida HOJE, evitando apagar a contagem de outros dias/blocos
     const hojeStr = new Date().toLocaleDateString('pt-BR');
     const indexParaRemover = lei.historico.findLastIndex(dataStr => new Date(dataStr).toLocaleDateString('pt-BR') === hojeStr);
     if (indexParaRemover !== -1) {
@@ -2363,22 +2366,20 @@ async function toggleLeiCheck(lIdx, bIdx) {
     }
   }
   
-  // ALTERAÇÃO: Retenção de 3 Meses (90 dias)
   if (lei.historico.length > 0) {
     const dataLimite = new Date();
-    dataLimite.setDate(dataLimite.getDate() - 90); // Define a meta de 90 dias atrás
+    dataLimite.setDate(dataLimite.getDate() - 90);
     
-    // Filtra mantendo apenas as datas que são de 90 dias atrás até hoje
     const totalAntes = lei.historico.length;
     lei.historico = lei.historico.filter(dataStr => new Date(dataStr) >= dataLimite);
     const apagados = totalAntes - lei.historico.length;
     
-    // Se apagou algo, mostramos um aviso discreto no console para você saber
-    if (apagados > 0) console.log(`[Lei Seca] ${apagados} registros antigos limpos do histórico.`);
+    if (apagados > 0) console.log(`[Lei Seca] ${apagados} registros limpos do histórico.`);
   }
   
-  await saveLeisDB(lei.id); // Passa o ID exato para não salvar o que não precisa
-  renderLeis();
+  // A MÁGICA ACONTECE AQUI:
+  renderLeis(); // Desenha o "check" na mesma fração de segundo
+  saveLeisDB(lei.id); // Deixa o Firebase processar no fundo silenciosamente
 }
 
 // ══════════════════════════════════════════════════
