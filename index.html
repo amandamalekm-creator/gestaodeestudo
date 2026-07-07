@@ -296,12 +296,12 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
 
 /* Colunas (Aplicado no HTML) */
 .rev-col-name { flex: 1; display: flex; align-items: center; }
-.rev-col-desempenho { width: 90px; text-align: center; display: flex; justify-content: center; }
-.rev-col-volume { width: 90px; text-align: center; display: flex; justify-content: center; }
+.rev-col-desempenho { width: 90px; text-align: center; display: flex; justify-content: center; font-family: 'DM Mono', monospace; }
+.rev-col-volume { width: 90px; text-align: center; display: flex; justify-content: center; font-family: 'DM Mono', monospace; }
+.rev-col-tempo { width: 90px; text-align: center; display: flex; justify-content: center; font-family: 'DM Mono', monospace; }
 .rev-col-tendencia { width: 80px; text-align: center; display: flex; justify-content: center; }
 .rev-col-juris { width: 110px; text-align: center; display: flex; justify-content: center; }
-.rev-col-date { width: 110px; text-align: center; display: flex; justify-content: center; }
-.rev-row-actions { width: 80px; display: flex; justify-content: flex-end; }
+.rev-col-date { width: 110px; text-align: center; display: flex; justify-content: center; font-family: 'DM Mono', monospace; }
 
 /* Linha de conteúdo */
 .rev-row { 
@@ -312,9 +312,14 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
     font-size: 13.5px; 
 }
 
+/* Ações Fixas: Ficam transparentes, não empurram o layout */
+.rev-row-actions { width: 80px; display: flex; justify-content: flex-end; opacity: 0; pointer-events: none; transition: 0.2s; gap: 4px; }
+.rev-row:hover .rev-row-actions { opacity: 1; pointer-events: auto; }
+
 /* Garante que o badge e a data dentro da linha tenham o mesmo alinhamento e empilhem itens */
 .rev-row .rev-col-desempenho,
 .rev-row .rev-col-volume,
+.rev-row .rev-col-tempo,
 .rev-row .rev-col-tendencia,
 .rev-row .rev-col-juris,
 .rev-row .rev-col-date { 
@@ -489,9 +494,6 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
 .schedule-grid::-webkit-scrollbar { height: 6px; }
 .schedule-grid::-webkit-scrollbar-track { background: transparent; }
 .schedule-grid::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
-/* Botões invisíveis da tabela de revisão */
-.rev-row-actions { display: none; gap: 4px; flex-shrink: 0; }
-.rev-row:hover .rev-row-actions { display: flex; }
 .rev-row.is-dragging { opacity: 0.4; background: var(--surface2); }
 </style>
 </head>
@@ -703,6 +705,7 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
         <div class="rev-col-name">Tópico do Edital</div>
         <div class="rev-col-desempenho">Desempenho</div>
         <div class="rev-col-volume">Volume</div>
+        <div class="rev-col-tempo">Tempo</div>
         <div class="rev-col-tendencia">Tendência</div>
         <div class="rev-col-juris">Jurisprudência</div>
         <div class="rev-col-date">Último Estudo</div>
@@ -1511,7 +1514,7 @@ function cancelarTimer() {
 // ══════════════════════════════════════════════════
 async function openPiP() {
   if (!('documentPictureInPicture' in window)) {
-    showToast("⚠️ Seu navegador não suporta a janela flutuante (Use o Google Chrome ou Edge no PC).");
+    showToast("⚠️ Seu navegador não suporta a janela flutuante.");
     return;
   }
   if (pipWindow) return;
@@ -1519,13 +1522,11 @@ async function openPiP() {
   try {
     pipWindow = await window.documentPictureInPicture.requestWindow({ width: 380, height: 480 });
     
-    // Injetar Fontes e Estilos Básicos para ficar igual ao app
     const fontLink = document.createElement('link');
     fontLink.href = 'https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@500&display=swap';
     fontLink.rel = 'stylesheet';
     pipWindow.document.head.appendChild(fontLink);
 
-    // INJEÇÃO DE CSS: Barra de rolagem fininha exclusiva para o PiP
     const pipStyle = pipWindow.document.createElement('style');
     pipStyle.textContent = `
       body { margin: 0; background: #F5F3EE; }
@@ -1536,7 +1537,6 @@ async function openPiP() {
     `;
     pipWindow.document.head.appendChild(pipStyle);
 
-    // Desenhar a Interface do Novo Mini-Painel Multi-Conteúdo
     pipWindow.document.body.innerHTML = `
       <div style="font-family:'DM Sans',sans-serif; background:#F5F3EE; min-height:100vh; padding:12px; color:#1A1714; box-sizing:border-box; display:flex; flex-direction:column; overflow-y:auto; overflow-x:hidden;">
         
@@ -1545,7 +1545,10 @@ async function openPiP() {
              <div style="font-size:10px; font-weight:600; color:#6B6560; text-transform:uppercase; letter-spacing:0.5px;">Aprovado · Satélite</div>
              <div style="font-size:15px; font-weight:600; color:#2D5A3D;" id="pip-materia">${currentMateria}</div>
            </div>
-           <div style="font-family:'DM Mono',monospace; font-size:22px; font-weight:500; color:#1A1714; background:#FFF; padding:3px 8px; border-radius:6px; border:1px solid #E2DDD4;" id="pip-timer">${formatTime(timerSeconds)}</div>
+           <div style="display:flex; align-items:center; gap:6px;">
+               <div style="font-family:'DM Mono',monospace; font-size:22px; font-weight:500; color:#1A1714; background:#FFF; padding:3px 8px; border-radius:6px; border:1px solid #E2DDD4;" id="pip-timer">${formatTime(timerSeconds)}</div>
+               <button id="pip-btn-playpause" style="background:#FFF; border:1px solid #E2DDD4; border-radius:6px; padding:4px 10px; cursor:pointer; font-size:14px; color:#1A1714; box-shadow:0 1px 3px rgba(0,0,0,0.05);">${timerPaused ? '▶' : '⏸'}</button>
+           </div>
         </div>
 
         <div style="background:#FFF; padding:10px; border-radius:8px; border:1px solid #E2DDD4; margin-bottom:12px; flex-shrink:0;">
@@ -1563,7 +1566,6 @@ async function openPiP() {
       </div>
     `;
 
-    // 1. Puxar todos os conteúdos da matéria para o Dropdown
     const sel = pipWindow.document.getElementById('pip-sel-conteudo');
     const mat = getMateriaObj(currentMateria);
     let optionsHtml = '<option value="">— Escolha o tópico —</option>';
@@ -1575,11 +1577,9 @@ async function openPiP() {
     }
     sel.innerHTML = optionsHtml;
 
-    // 2. Função REFORMULADA para desenhar a lista de múltiplos conteúdos
     function renderPiPList() {
       const container = pipWindow.document.getElementById('pip-list-container');
       
-      // Se não houver nada na memória invisível do PiP
       if (Object.keys(liveSessionData).length === 0) {
         container.innerHTML = `
           <div style="text-align:center; padding:30px 10px; color:#9E9890; font-size:12px; background:#FFF; border-radius:8px; border:1px solid #E2DDD4;">
@@ -1589,7 +1589,6 @@ async function openPiP() {
         return;
       }
 
-      // Desenha uma linha para cada conteúdo ativo
       container.innerHTML = Object.entries(liveSessionData).map(([name, data]) => {
         const certas = data.c || 0;
         const erradas = data.e || 0;
@@ -1597,7 +1596,10 @@ async function openPiP() {
         
         return `
           <div style="background:#FFF; padding:12px; border-radius:8px; border:1px solid #E2DDD4; margin-bottom:8px;">
-             <div style="font-size:12px; font-weight:600; color:#1A1714; margin-bottom:8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${escHtml(name)}">📖 ${escHtml(name)}</div>
+             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                 <div style="font-size:12px; font-weight:600; color:#1A1714; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${escHtml(name)}">📖 ${escHtml(name)}</div>
+                 <button class="pip-btn-remove" data-name="${escHtml(name)}" style="background:none; border:none; color:#C0392B; cursor:pointer; padding:0 4px; font-size:14px;" title="Remover conteúdo desta sessão">✕</button>
+             </div>
              
              <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
                 <div style="font-family:'DM Mono',monospace; font-size:18px; font-weight:500; color:#9E9890; background:#F0EDE6; padding:5px 8px; border-radius:6px; min-width:40px; text-align:center;" title="Total de Questões">
@@ -1618,16 +1620,26 @@ async function openPiP() {
         `;
       }).join('');
       
-      // Adicionar os escutadores de clique dinamicamente nas novas linhas
       pipWindow.document.querySelectorAll('.pip-inc-c').forEach(btn => {
         btn.addEventListener('click', () => incrementarPiP(btn.dataset.name, 'c'));
       });
       pipWindow.document.querySelectorAll('.pip-inc-e').forEach(btn => {
         btn.addEventListener('click', () => incrementarPiP(btn.dataset.name, 'e'));
       });
+
+      // LÓGICA DO BOTÃO DE EXCLUIR CONTEÚDO
+      pipWindow.document.querySelectorAll('.pip-btn-remove').forEach(btn => {
+        btn.addEventListener('click', () => {
+           const nome = btn.dataset.name;
+           if(confirm(`Remover "${nome}" desta sessão?`)) {
+               delete liveSessionData[nome];
+               localStorage.setItem('aprovado_pip_bkp', JSON.stringify(liveSessionData));
+               renderPiPList();
+           }
+        });
+      });
     }
 
-    // 3. Função para adicionar conteúdo à lista ativa
     pipWindow.document.getElementById('pip-btn-add').addEventListener('click', () => {
       const name = sel.value;
       if (!name) return;
@@ -1641,10 +1653,20 @@ async function openPiP() {
       renderPiPList();
     });
 
-    // 4. Função de incremento
+    // LÓGICA DO BOTÃO PAUSE NO PIP
+    const btnPlayPause = pipWindow.document.getElementById('pip-btn-playpause');
+    btnPlayPause.addEventListener('click', () => {
+        if (timerRunning) {
+            pauseTimer();
+            btnPlayPause.innerHTML = '▶';
+        } else if (timerPaused) {
+            startTimer();
+            btnPlayPause.innerHTML = '⏸';
+        }
+    });
+
     function incrementarPiP(name, tipo) {
       if (!liveSessionData[name]) return;
-      
       if (tipo === 'c') liveSessionData[name].c++; 
       if (tipo === 'e') liveSessionData[name].e++; 
       
@@ -1652,22 +1674,19 @@ async function openPiP() {
       renderPiPList();
     }
 
-    // Desenhar a lista inicial
     renderPiPList();
 
-    // 5. Quando clicar em Finalizar no Mini-Painel
     pipWindow.document.getElementById('pip-btn-finish').addEventListener('click', () => {
       pipWindow.close(); 
       openFinishModal(); 
       window.focus(); 
     });
 
-    // Limpar variável se o usuário fechar no "X"
     pipWindow.addEventListener("pagehide", () => { pipWindow = null; });
 
   } catch (error) {
     console.error("Erro no PIP V2:", error);
-    showToast("A janela flutuante falhou. Verifique as permissões do navegador.");
+    showToast("A janela flutuante falhou. Verifique as permissões.");
   }
 }
   
@@ -2653,7 +2672,7 @@ function renderRevisao() {
         </button>
     `).join('');
 
-    // 2. Desenha a tabela com todos os dados divididos
+    // 2. Desenha a tabela com todos os dados
     const mat = state.materias[revCurrentMateriaIndex];
     const conteudos = mat.conteudos || [];
 
@@ -2668,14 +2687,15 @@ function renderRevisao() {
             
             const percVal = (agg && agg.totalQs > 0) ? Math.round((agg.correctQs / agg.totalQs) * 100) : null;
             const lastDate = (agg && agg.lastStudied) ? new Date(agg.lastStudied).toLocaleDateString('pt-BR') : '—';
-            const badgeHtml = percVal !== null ? `<span class="rev-badge ${percVal >= 80 ? 'rb-bom' : percVal >= 60 ? 'rb-medio' : 'rb-ruim'}">${percVal}%</span>` : '—';
+            const badgeHtml = percVal !== null ? `<span class="rev-badge ${percVal >= 80 ? 'rb-bom' : percVal >= 60 ? 'rb-medio' : 'rb-ruim'}" style="font-family:'DM Mono',monospace; font-size:12px;">${percVal}%</span>` : '<span style="font-size:11px; color:var(--text3);">—</span>';
 
             // 1. Tendência (Evolução)
             const trendStr = calcTrend(ctId);
             const trendIcon = trendStr === '↑' ? '<span style="color:var(--green); font-size:16px; font-weight:bold;">↑</span>' : (trendStr === '↓' ? '<span style="color:var(--danger); font-size:16px; font-weight:bold;">↓</span>' : '<span style="color:var(--text3); font-size:16px; font-weight:bold;">→</span>');
 
-            // 2. Volume de Questões
-            const volText = (agg && agg.totalQs > 0) ? `<span style="font-family:'DM Mono',monospace; font-size:12px;">${agg.correctQs}/${agg.totalQs}</span>` : '<span style="color:var(--text3); font-size:11px;">—</span>';
+            // 2. Volume de Questões e Tempo
+            const volText = (agg && agg.totalQs > 0) ? `<span style="font-size:12px;">${agg.correctQs}/${agg.totalQs}</span>` : '<span style="color:var(--text3); font-size:11px;">—</span>';
+            const tempoStr = (agg && agg.totalTime > 0) ? `<span style="font-size:12px;">${formatTime(agg.totalTime)}</span>` : '<span style="color:var(--text3); font-size:11px;">—</span>';
 
             // 3. Dias sem estudar
             let daysText = "—";
@@ -2686,7 +2706,7 @@ function renderRevisao() {
                 lastDateObj.setHours(0,0,0,0);
                 const diffTime = Math.abs(now - lastDateObj);
                 const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-                daysText = diffDays === 0 ? "hoje" : `há ${diffDays} dia(s)`;
+                daysText = diffDays === 0 ? "hoje" : `há ${diffDays}d`;
             }
 
             // 4. Jurisprudência
@@ -2712,15 +2732,16 @@ function renderRevisao() {
 
                     <div class="rev-col-desempenho">${badgeHtml}</div>
                     <div class="rev-col-volume">${volText}</div>
+                    <div class="rev-col-tempo">${tempoStr}</div>
                     <div class="rev-col-tendencia">${trendIcon}</div>
                     
                     <div class="rev-col-juris">
                         <input type="checkbox" style="cursor:pointer; accent-color:var(--accent); width:16px; height:16px;" ${jurisDone ? 'checked' : ''} onclick="toggleRevJuris(${revCurrentMateriaIndex}, ${ctIdx})">
-                        <span style="font-size:10.5px; color:var(--text3); font-family: 'DM Mono', monospace;">${jurisDate}</span>
+                        <span style="font-size:10.5px; color:var(--text3);">${jurisDate}</span>
                     </div>
                     
                     <div class="rev-col-date">
-                        <span>${lastDate}</span>
+                        <span style="font-size:12px;">${lastDate}</span>
                         <span class="rev-days-since">${daysText}</span>
                     </div>
                     
