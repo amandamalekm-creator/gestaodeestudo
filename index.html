@@ -1627,15 +1627,13 @@ async function openPiP() {
         btn.addEventListener('click', () => incrementarPiP(btn.dataset.name, 'e'));
       });
 
-      // LÓGICA DO BOTÃO DE EXCLUIR CONTEÚDO
+      // LÓGICA DO BOTÃO DE EXCLUIR CONTEÚDO (Sem confirm para não ser bloqueado pelo navegador)
       pipWindow.document.querySelectorAll('.pip-btn-remove').forEach(btn => {
         btn.addEventListener('click', () => {
            const nome = btn.dataset.name;
-           if(confirm(`Remover "${nome}" desta sessão?`)) {
-               delete liveSessionData[nome];
-               localStorage.setItem('aprovado_pip_bkp', JSON.stringify(liveSessionData));
-               renderPiPList();
-           }
+           delete liveSessionData[nome];
+           localStorage.setItem('aprovado_pip_bkp', JSON.stringify(liveSessionData));
+           renderPiPList();
         });
       });
     }
