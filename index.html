@@ -296,8 +296,11 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
 
 /* Colunas (Aplicado no HTML) */
 .rev-col-name { flex: 1; display: flex; align-items: center; }
-.rev-col-badge { width: 180px; text-align: center; display: flex; justify-content: center; }
-.rev-col-date { width: 140px; text-align: center; display: flex; justify-content: center; }
+.rev-col-desempenho { width: 90px; text-align: center; display: flex; justify-content: center; }
+.rev-col-volume { width: 90px; text-align: center; display: flex; justify-content: center; }
+.rev-col-tendencia { width: 80px; text-align: center; display: flex; justify-content: center; }
+.rev-col-juris { width: 110px; text-align: center; display: flex; justify-content: center; }
+.rev-col-date { width: 110px; text-align: center; display: flex; justify-content: center; }
 .rev-row-actions { width: 80px; display: flex; justify-content: flex-end; }
 
 /* Linha de conteúdo */
@@ -310,7 +313,10 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
 }
 
 /* Garante que o badge e a data dentro da linha tenham o mesmo alinhamento e empilhem itens */
-.rev-row .rev-col-badge, 
+.rev-row .rev-col-desempenho,
+.rev-row .rev-col-volume,
+.rev-row .rev-col-tendencia,
+.rev-row .rev-col-juris,
 .rev-row .rev-col-date { 
     display: flex; 
     flex-direction: column; 
@@ -318,8 +324,6 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
     justify-content: center;
     gap: 4px; 
 }
-.rev-row .rev-col-badge { width: 180px; }
-.rev-row .rev-col-date { width: 140px; }
 
 /* Estilo do indicador de dias sem estudar */
 .rev-days-since { 
@@ -656,23 +660,7 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
         </div>
     </div>
 
-    <!-- Tabela de Ação Automática -->
-    <div class="card">
-        <div class="card-title">📋 Tabela de Ação e Diagnóstico</div>
-        <div style="overflow-x: auto;">
-            <table class="sessions-table">
-                <thead>
-                    <tr>
-                        <th>Disciplina / Tópico</th>
-                        <th>Aproveit.</th>
-                        <th>Tendência</th>
-                        <th>Recomendação Algorítmica</th>
-                    </tr>
-                </thead>
-                <tbody id="an-action-body"></tbody>
-            </table>
-        </div>
-    </div>
+   
 </section>
  <section class="page" id="page-leis">
   <h1 class="page-title">Ciclos de Lei Seca</h1>
@@ -712,8 +700,11 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
 
    <div class="card" style="padding: 0; overflow: hidden; border-radius: 8px;">
      <div class="rev-table-header">
-        <div class="rev-col-name">Tópico, Maturidade & Prioridade</div>
-        <div class="rev-col-badge">Desempenho, Volume & Tendência</div>
+        <div class="rev-col-name">Tópico do Edital</div>
+        <div class="rev-col-desempenho">Desempenho</div>
+        <div class="rev-col-volume">Volume</div>
+        <div class="rev-col-tendencia">Tendência</div>
+        <div class="rev-col-juris">Jurisprudência</div>
         <div class="rev-col-date">Último Estudo</div>
         <div class="rev-row-actions"></div>
       </div>
@@ -2662,7 +2653,7 @@ function renderRevisao() {
         </button>
     `).join('');
 
-    // 2. Desenha a tabela com todos os dados estratégicos (Sem previsão de datas)
+    // 2. Desenha a tabela com todos os dados divididos
     const mat = state.materias[revCurrentMateriaIndex];
     const conteudos = mat.conteudos || [];
 
@@ -2681,46 +2672,26 @@ function renderRevisao() {
 
             // 1. Tendência (Evolução)
             const trendStr = calcTrend(ctId);
-            const trendIcon = trendStr === '↑' ? '<span style="color:var(--green)">↑</span>' : (trendStr === '↓' ? '<span style="color:var(--danger)">↓</span>' : '<span style="color:var(--text3)">→</span>');
+            const trendIcon = trendStr === '↑' ? '<span style="color:var(--green); font-size:16px; font-weight:bold;">↑</span>' : (trendStr === '↓' ? '<span style="color:var(--danger); font-size:16px; font-weight:bold;">↓</span>' : '<span style="color:var(--text3); font-size:16px; font-weight:bold;">→</span>');
 
             // 2. Volume de Questões
-            const volText = (agg && agg.totalQs > 0) ? `${agg.correctQs}/${agg.totalQs} qs` : 'Sem questões';
+            const volText = (agg && agg.totalQs > 0) ? `<span style="font-family:'DM Mono',monospace; font-size:12px;">${agg.correctQs}/${agg.totalQs}</span>` : '<span style="color:var(--text3); font-size:11px;">—</span>';
 
-            // 3. Maturidade (Fase de Estudo)
-            let faseTag = '<span style="font-size:10px; background:var(--surface2); color:var(--text2); padding:2px 6px; border-radius:4px;">📘 Teoria / Inédito</span>';
-            if (agg && agg.totalQs > 0) {
-                if (agg.totalQs > 30) {
-                    faseTag = percVal >= 80 
-                        ? '<span style="font-size:10px; background:#e8f5ec; color:var(--green); padding:2px 6px; border-radius:4px;">🏆 Domínio Absoluto</span>'
-                        : '<span style="font-size:10px; background:var(--warn-light); color:var(--warn); padding:2px 6px; border-radius:4px;">⚠️ Reforço Necessário</span>';
-                } else {
-                    faseTag = '<span style="font-size:10px; background:var(--accent-light); color:var(--accent); padding:2px 6px; border-radius:4px;">📝 Prática Inicial</span>';
-                }
-            }
-
+            // 3. Dias sem estudar
             let daysText = "—";
-            let prioIcon = "⚪ Aguardando início";
-
             if (agg && agg.lastStudied) {
                 const now = new Date();
                 now.setHours(0,0,0,0);
-                
                 const lastDateObj = new Date(agg.lastStudied);
                 lastDateObj.setHours(0,0,0,0);
-                
                 const diffTime = Math.abs(now - lastDateObj);
                 const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
                 daysText = diffDays === 0 ? "hoje" : `há ${diffDays} dia(s)`;
-
-                // 4. Prioridade Algorítmica (Score focado em alavancar desempenho ruim/médio ou tópicos abandonados)
-                if ((percVal !== null && percVal < 60) || diffDays > 21) {
-                    prioIcon = "🔥 Ação Urgente";
-                } else if ((percVal !== null && percVal < 80) || diffDays > 14) {
-                    prioIcon = "🟡 Atenção";
-                } else {
-                    prioIcon = "✅ Consolidado";
-                }
             }
+
+            // 4. Jurisprudência
+            const jurisDone = ct.jurisDone || false;
+            const jurisDate = ct.jurisDate ? new Date(ct.jurisDate).toLocaleDateString('pt-BR') : '—';
 
             return `
                 <div class="rev-row ${isHidden ? 'is-hidden' : ''}" 
@@ -2734,23 +2705,18 @@ function renderRevisao() {
                      title="Clique e segure para reordenar"
                      style="cursor: grab;">
                     
-                    <div class="rev-col-name" style="flex-direction:column; align-items:flex-start; justify-content:center; gap:6px;">
-                        <div style="display:flex; align-items:center;">
-                            <button class="btn-rev-toggle" onclick="toggleRevContent(${revCurrentMateriaIndex}, ${ctIdx})">👁️</button>
-                            <span style="font-weight: 500;">${escHtml(ctName)}</span>
-                        </div>
-                        <div style="padding-left: 28px; display:flex; align-items:center; gap:6px;">
-                            ${faseTag}
-                            <span style="font-size:10px; color:var(--text3); font-weight:600;">${prioIcon}</span>
-                        </div>
+                    <div class="rev-col-name" style="gap:6px;">
+                        <button class="btn-rev-toggle" onclick="toggleRevContent(${revCurrentMateriaIndex}, ${ctIdx})">👁️</button>
+                        <span style="font-weight: 500;">${escHtml(ctName)}</span>
                     </div>
 
-                    <div class="rev-col-badge">
-                        <div style="display:flex; align-items:center; gap:8px;">
-                            ${badgeHtml}
-                            <span style="font-size:13px; font-weight:bold;">${trendIcon}</span>
-                        </div>
-                        <span style="font-size:10px; color:var(--text3); font-family: 'DM Mono', monospace;">${volText}</span>
+                    <div class="rev-col-desempenho">${badgeHtml}</div>
+                    <div class="rev-col-volume">${volText}</div>
+                    <div class="rev-col-tendencia">${trendIcon}</div>
+                    
+                    <div class="rev-col-juris">
+                        <input type="checkbox" style="cursor:pointer; accent-color:var(--accent); width:16px; height:16px;" ${jurisDone ? 'checked' : ''} onclick="toggleRevJuris(${revCurrentMateriaIndex}, ${ctIdx})">
+                        <span style="font-size:10.5px; color:var(--text3); font-family: 'DM Mono', monospace;">${jurisDate}</span>
                     </div>
                     
                     <div class="rev-col-date">
@@ -2765,6 +2731,24 @@ function renderRevisao() {
                 </div>`;
         }).join('');
     }
+}
+
+// Função para salvar a jurisprudência de forma otimista e no Firebase
+async function toggleRevJuris(mIdx, ctIdx) {
+    const conteudos = state.materias[mIdx].conteudos;
+    if (!conteudos || !conteudos[ctIdx]) return;
+
+    // Transforma string em objeto se for um tópico muito antigo sem ID
+    if (typeof conteudos[ctIdx] === 'string') {
+        const nome = conteudos[ctIdx];
+        conteudos[ctIdx] = { name: nome, id: nome };
+    }
+
+    conteudos[ctIdx].jurisDone = !conteudos[ctIdx].jurisDone;
+    conteudos[ctIdx].jurisDate = conteudos[ctIdx].jurisDone ? new Date().toISOString() : null;
+
+    renderRevisao(); // Atualiza a caixinha e a data na mesma fração de segundo
+    saveMateriasDB(); // Salva no Firebase em background
 }
   
 function iniciarArrastoCt(e) {
@@ -3225,52 +3209,6 @@ function renderAnalytics() {
                 }
             }
         });
-    }
-
-    // ==========================================
-    // TABELA 3: AÇÃO E DIAGNÓSTICO
-    // ==========================================
-    const tbody = document.getElementById('an-action-body');
-    if (tbody) {
-        tbody.innerHTML = filteredIds.map(id => {
-            const agg = state.aggregates.conteudos[id];
-            const info = nomeMap[id];
-            const perc = agg.totalQs > 0 ? Math.round((agg.correctQs / agg.totalQs) * 100) : 0;
-            const horas = agg.totalTime / 3600;
-            
-            let rec = "<span style='color:var(--text2)'>Manutenção Constante 📘</span>";
-            let rowBg = "";
-            if (perc < 60 && horas > 5) {
-                rec = "<span style='color:var(--danger)'>Revisar Teoria (Estudou muito, errou muito) ⚠️</span>";
-                rowBg = "background: var(--danger-light);";
-            }
-            else if (perc < 60 && horas <= 5) {
-                rec = "<span style='color:var(--warn)'>Prioridade (Iniciante no tema) 🚨</span>";
-                rowBg = "background: var(--warn-light);";
-            }
-            else if (perc > 85) {
-                rec = "<span style='color:var(--green)'>Domínio (Faça só revisões rápidas) ✅</span>";
-                rowBg = "background: #e8f5ec;";
-            }
-
-            const trend = calcTrend(id);
-            const trendIco = trend === '↑' ? '<span style="color:var(--green); font-weight:bold;">📈 Subindo</span>' : 
-                             (trend === '↓' ? '<span style="color:var(--danger); font-weight:bold;">📉 Caindo</span>' : '<span style="color:var(--text3); font-weight:bold;">→ Estável</span>');
-            
-            return `<tr style="${rowBg}">
-                <td>
-                    <div style="font-size:10px; color:var(--text3); text-transform:uppercase; font-weight:bold; margin-bottom: 2px;">
-                        ${escHtml(info.materia)}
-                    </div>
-                    <strong style="font-size:13px;">${escHtml(info.name)}</strong>
-                </td>
-                <td>
-                    <span class="badge ${perc >= 80 ? 'badge-green' : (perc >= 60 ? 'badge-warn' : 'badge-danger')}">${perc}%</span>
-                </td>
-                <td>${trendIco}</td>
-                <td>${rec}</td>
-            </tr>`;
-        }).join('');
     }
 }
 
