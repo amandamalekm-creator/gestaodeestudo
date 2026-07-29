@@ -284,10 +284,11 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
 .rev-tab-btn.active { background: var(--accent); color: white; box-shadow: var(--shadow-md); border: 1px solid var(--accent); }
 
 /* Cabeçalho da Tabela */
+/* Cabeçalho da Tabela */
 .rev-table-header { 
     display: flex; 
-    padding: 12px 24px; 
-    background: var(--surface2); 
+    padding: 4px 24px 12px 24px; 
+    background: var(--surface); 
     border-bottom: 1px solid var(--border); 
     font-size: 11px; 
     font-weight: 600; 
@@ -703,8 +704,8 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
 
    <div class="card" style="padding: 0; overflow: hidden; border-radius: 8px;">
      
-     <!-- Resumo do Desempenho Geral da Matéria -->
-     <div id="rev-materia-summary" style="padding: 16px 24px; background: var(--surface); border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
+    <!-- Resumo do Desempenho Geral da Matéria -->
+     <div id="rev-materia-summary" style="padding: 20px 24px 12px 24px; background: var(--surface); display: flex; justify-content: space-between; align-items: center;">
         <span style="font-family: 'DM Serif Display', serif; font-size: 20px; color: var(--accent);" id="rev-materia-title">Matéria</span>
         <div id="rev-materia-badge"></div>
      </div>
@@ -2771,6 +2772,10 @@ function renderRevisao() {
                 ? `<span class="rev-badge ${lastPercVal >= 80 ? 'rb-bom' : lastPercVal >= 60 ? 'rb-medio' : 'rb-ruim'}" style="font-family: 'DM Mono', monospace; font-size: 12px;">${lastPercVal}%</span>` 
                 : `<span style="color:var(--text3); font-size:12px;">—</span>`;
             
+            // --- O SEGREDO DO ALINHAMENTO: Espaçador Invisível ---
+            // Adiciona uma linha "falsa" embaixo da tag Último só quando houver volume de questões na tag Geral
+            const espacadorInvisivel = (agg && agg.totalQs > 0) ? `<span style="font-size:10px; visibility:hidden;">-</span>` : '';
+
             // --- TENDÊNCIA (Seta Vermelha para queda, Verde para subida) ---
             const trendStr = calcTrend(ctId);
             const trendIcon = trendStr === '↑' ? '<span style="color:var(--green); font-size:16px; font-weight:bold;">↑</span>' : (trendStr === '↓' ? '<span style="color:var(--danger); font-size:16px; font-weight:bold;">↓</span>' : '<span style="color:var(--text3); font-size:16px; font-weight:bold;">→</span>');
@@ -2803,6 +2808,7 @@ function renderRevisao() {
 
                     <div class="rev-col-ultimo">
                         ${badgeUltimoHtml}
+                        ${espacadorInvisivel}
                     </div>
 
                     <div class="rev-col-geral">
@@ -2832,6 +2838,7 @@ function renderRevisao() {
         }).join('');
     }
 }
+  
 // Função para salvar a jurisprudência de forma otimista e no Firebase
 async function toggleRevJuris(mIdx, ctIdx) {
     const conteudos = state.materias[mIdx].conteudos;
