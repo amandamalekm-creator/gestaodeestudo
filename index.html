@@ -294,14 +294,13 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
     color: var(--text3); 
     text-transform: uppercase; 
 }
-
 /* Colunas (Aplicado no HTML) */
-.rev-col-name { flex: 1; display: flex; align-items: center; }
-.rev-col-ultimo { width: 90px; text-align: center; display: flex; justify-content: center; }
-.rev-col-geral { width: 90px; text-align: center; display: flex; justify-content: center; }
-.rev-col-tendencia { width: 80px; text-align: center; display: flex; justify-content: center; }
-.rev-col-juris { width: 110px; text-align: center; display: flex; justify-content: center; }
-.rev-col-date { width: 120px; text-align: center; display: flex; justify-content: center; }
+.rev-col-name { flex: 1; display: flex; align-items: center; min-width: 150px; }
+.rev-col-ultimo { width: 90px; min-width: 90px; flex-shrink: 0; display: flex; justify-content: center; text-align: center; }
+.rev-col-geral { width: 90px; min-width: 90px; flex-shrink: 0; display: flex; justify-content: center; text-align: center; }
+.rev-col-tendencia { width: 80px; min-width: 80px; flex-shrink: 0; display: flex; justify-content: center; text-align: center; }
+.rev-col-juris { width: 110px; min-width: 110px; flex-shrink: 0; display: flex; justify-content: center; text-align: center; }
+.rev-col-date { width: 120px; min-width: 120px; flex-shrink: 0; display: flex; justify-content: center; text-align: center; }
 
 /* Linha de conteúdo */
 .rev-row { 
@@ -313,7 +312,7 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
 }
 
 /* Ações Fixas */
-.rev-row-actions { width: 80px; display: flex; justify-content: flex-end; opacity: 0; pointer-events: none; transition: 0.2s; gap: 4px; }
+.rev-row-actions { width: 80px; min-width: 80px; flex-shrink: 0; display: flex; justify-content: flex-end; opacity: 0; pointer-events: none; transition: 0.2s; gap: 4px; }
 .rev-row:hover .rev-row-actions { opacity: 1; pointer-events: auto; }
 
 /* Empilhamento de itens na linha */
@@ -2743,8 +2742,8 @@ function renderRevisao() {
         if (matAgg && matAgg.totalQs > 0) matPerc = Math.round((matAgg.correctQs / matAgg.totalQs) * 100);
         
         badgeEl.innerHTML = matPerc !== null 
-            ? `<span style="background:var(--accent-light); color:var(--accent); border-radius:99px; font-weight:600; font-size: 13px; padding: 6px 14px;">Aproveitamento Geral: ${matPerc}%</span>` 
-            : `<span style="background:var(--surface2); color:var(--text2); border-radius:99px; font-weight:500; font-size: 13px; padding: 6px 14px;">Sem questões resolvidas</span>`;
+            ? `<span class="rev-badge ${matPerc >= 80 ? 'rb-bom' : matPerc >= 60 ? 'rb-medio' : 'rb-ruim'}" style="font-size: 13px; padding: 6px 14px;">Aproveitamento Geral: ${matPerc}%</span>` 
+            : `<span class="rev-badge rb-fazer" style="font-size: 13px; padding: 6px 14px;">Sem questões resolvidas</span>`;
     }
 
     if (conteudos.length === 0) {
@@ -2756,29 +2755,25 @@ function renderRevisao() {
             const agg = state.aggregates.conteudos[ctId];
             const isHidden = ct.hidden || false;
             
-            // --- APROVEITAMENTO GERAL ---
+            // --- APROVEITAMENTO GERAL (Cores originais) ---
             const percVal = (agg && agg.totalQs > 0) ? Math.round((agg.correctQs / agg.totalQs) * 100) : null;
-            const bgGeral = percVal !== null && percVal >= 80 ? 'var(--accent-light)' : 'var(--surface2)';
-            const colorGeral = percVal !== null && percVal >= 80 ? 'var(--accent)' : 'var(--text2)';
             const badgeGeralHtml = percVal !== null 
-                ? `<span style="background:${bgGeral}; color:${colorGeral}; padding: 4px 12px; border-radius: 99px; font-weight: 600; font-family: 'DM Mono', monospace; font-size: 12px;">${percVal}%</span>` 
+                ? `<span class="rev-badge ${percVal >= 80 ? 'rb-bom' : percVal >= 60 ? 'rb-medio' : 'rb-ruim'}" style="font-family: 'DM Mono', monospace; font-size: 12px;">${percVal}%</span>` 
                 : `<span style="color:var(--text3); font-size:12px;">—</span>`;
             const volText = (agg && agg.totalQs > 0) ? `<span style="font-size:10px; color:var(--text3);">${agg.correctQs}/${agg.totalQs} qs</span>` : '';
 
-            // --- ÚLTIMO APROVEITAMENTO ---
+            // --- ÚLTIMO APROVEITAMENTO (Cores originais) ---
             let lastPercVal = null;
             if (agg && agg.last5 && agg.last5.length > 0) {
                 lastPercVal = Math.round(agg.last5[agg.last5.length - 1].perc * 100);
             }
-            const bgUltimo = lastPercVal !== null && lastPercVal >= 80 ? 'var(--accent-light)' : 'var(--surface2)';
-            const colorUltimo = lastPercVal !== null && lastPercVal >= 80 ? 'var(--accent)' : 'var(--text2)';
             const badgeUltimoHtml = lastPercVal !== null 
-                ? `<span style="background:${bgUltimo}; color:${colorUltimo}; padding: 4px 12px; border-radius: 99px; font-weight: 600; font-family: 'DM Mono', monospace; font-size: 12px;">${lastPercVal}%</span>` 
+                ? `<span class="rev-badge ${lastPercVal >= 80 ? 'rb-bom' : lastPercVal >= 60 ? 'rb-medio' : 'rb-ruim'}" style="font-family: 'DM Mono', monospace; font-size: 12px;">${lastPercVal}%</span>` 
                 : `<span style="color:var(--text3); font-size:12px;">—</span>`;
             
-            // --- TENDÊNCIA ---
+            // --- TENDÊNCIA (Seta Vermelha para queda, Verde para subida) ---
             const trendStr = calcTrend(ctId);
-            const trendIcon = trendStr === '↑' ? '<span style="color:var(--accent); font-size:16px; font-weight:bold;">↑</span>' : (trendStr === '↓' ? '<span style="color:var(--text3); font-size:16px; font-weight:bold;">↓</span>' : '<span style="color:var(--text3); font-size:16px; font-weight:bold;">→</span>');
+            const trendIcon = trendStr === '↑' ? '<span style="color:var(--green); font-size:16px; font-weight:bold;">↑</span>' : (trendStr === '↓' ? '<span style="color:var(--danger); font-size:16px; font-weight:bold;">↓</span>' : '<span style="color:var(--text3); font-size:16px; font-weight:bold;">→</span>');
 
             // --- DIAS SEM ESTUDAR ---
             let daysText = "—";
@@ -2837,7 +2832,6 @@ function renderRevisao() {
         }).join('');
     }
 }
-
 // Função para salvar a jurisprudência de forma otimista e no Firebase
 async function toggleRevJuris(mIdx, ctIdx) {
     const conteudos = state.materias[mIdx].conteudos;
