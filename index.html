@@ -2761,7 +2761,7 @@ function renderRevisao() {
             const badgeGeralHtml = percVal !== null 
                 ? `<span class="rev-badge ${percVal >= 80 ? 'rb-bom' : percVal >= 60 ? 'rb-medio' : 'rb-ruim'}" style="font-family: 'DM Mono', monospace; font-size: 12px;">${percVal}%</span>` 
                 : `<span style="color:var(--text3); font-size:12px;">—</span>`;
-            const volText = (agg && agg.totalQs > 0) ? `<span style="font-size:10px; color:var(--text3);">${agg.correctQs}/${agg.totalQs} qs</span>` : '';
+            const volText = (agg && agg.totalQs > 0) ? `<span style="font-size:10px; color:var(--text3);">${agg.correctQs}/${agg.totalQs}</span>` : '';
 
             // --- ÚLTIMO APROVEITAMENTO (Cores originais) ---
             let lastPercVal = null;
