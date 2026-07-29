@@ -9,7 +9,11 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
-
+<!-- Biblioteca para leitura de PDFs -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+<script>
+  window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+</script>
 <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.9.0/firebase-auth-compat.js"></script>
@@ -43,14 +47,14 @@ body { font-family:'DM Sans',sans-serif; background:var(--bg); color:var(--text)
 .sidebar-footer { margin-top:auto; font-size:11px; color:var(--text3); text-align:center; line-height:1.8; }
 .cloud-status { display:flex; align-items:center; justify-content:center; gap:6px; font-size:11px; padding:6px; margin-top:8px; border-radius:6px; background:var(--surface2); color:var(--text2); }
 
-.main { margin-left:220px; flex:1; padding:36px 40px; max-width:calc(100vw - 220px); }
+.main { margin-left:220px; flex:1; min-width:0; padding:36px 40px; max-width:calc(100vw - 220px); overflow-x:hidden; }
 .page { display:none; animation:fadeIn .25s ease; }
 .page.active { display:block; }
 @keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
 .page-title { font-family:'DM Serif Display',serif; font-size:28px; margin-bottom:4px; letter-spacing:-.5px; }
 .page-sub { color:var(--text3); font-size:13px; margin-bottom:28px; }
 
-.card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:24px; box-shadow:var(--shadow); }
+.card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:24px; box-shadow:var(--shadow); min-width:0; overflow-x:hidden; }
 .card-title { font-weight:600; font-size:13px; text-transform:uppercase; letter-spacing:.08em; color:var(--text3); margin-bottom:16px; }
 
 .timer-card { background:var(--accent); color:white; border:none; padding:36px 28px 28px; position:relative; overflow:hidden; }
@@ -90,8 +94,8 @@ input::placeholder,textarea::placeholder { color:var(--text3); }
 textarea { resize:vertical; min-height:60px; }
 input[readonly] { background:var(--surface2); color:var(--text2); cursor:default; }
 
-.grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
-.grid-3 { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
+.grid-2 { display:grid; grid-template-columns:minmax(0, 1fr) minmax(0, 1fr); gap:16px; min-width:0; }
+.grid-3 { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:16px; min-width:0; }
 
 .stat-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:20px; box-shadow:var(--shadow); }
 .stat-label { font-size:11px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:var(--text3); margin-bottom:8px; }
@@ -208,7 +212,7 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
   .nav-btn{justify-content:center;padding:12px;}
   .nav-btn .ico{width:auto;}
   .main{margin-left:64px;padding:24px 20px;max-width:calc(100vw - 64px);}
-  .grid-2,.grid-3{grid-template-columns:1fr;}
+  .grid-2,.grid-3{grid-template-columns:minmax(0, 1fr);}
   .timer-display{font-size:40px;}
 }
 .analytics-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px; margin-bottom:20px; }
@@ -296,12 +300,10 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
 
 /* Colunas (Aplicado no HTML) */
 .rev-col-name { flex: 1; display: flex; align-items: center; }
-.rev-col-desempenho { width: 90px; text-align: center; display: flex; justify-content: center; font-family: 'DM Mono', monospace; }
-.rev-col-volume { width: 90px; text-align: center; display: flex; justify-content: center; font-family: 'DM Mono', monospace; }
-.rev-col-tempo { width: 90px; text-align: center; display: flex; justify-content: center; font-family: 'DM Mono', monospace; }
-.rev-col-tendencia { width: 80px; text-align: center; display: flex; justify-content: center; }
+.rev-col-ultimo { width: 100px; text-align: center; display: flex; justify-content: center; }
+.rev-col-geral { width: 140px; text-align: center; display: flex; justify-content: center; }
 .rev-col-juris { width: 110px; text-align: center; display: flex; justify-content: center; }
-.rev-col-date { width: 110px; text-align: center; display: flex; justify-content: center; font-family: 'DM Mono', monospace; }
+.rev-col-date { width: 120px; text-align: center; display: flex; justify-content: center; font-family: 'DM Mono', monospace; }
 
 /* Linha de conteúdo */
 .rev-row { 
@@ -317,10 +319,8 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
 .rev-row:hover .rev-row-actions { opacity: 1; pointer-events: auto; }
 
 /* Garante que o badge e a data dentro da linha tenham o mesmo alinhamento e empilhem itens */
-.rev-row .rev-col-desempenho,
-.rev-row .rev-col-volume,
-.rev-row .rev-col-tempo,
-.rev-row .rev-col-tendencia,
+.rev-row .rev-col-ultimo,
+.rev-row .rev-col-geral,
 .rev-row .rev-col-juris,
 .rev-row .rev-col-date { 
     display: flex; 
@@ -329,7 +329,7 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
     justify-content: center;
     gap: 4px; 
 }
-
+  
 /* Estilo do indicador de dias sem estudar */
 .rev-days-since { 
     font-size: 10.5px; 
@@ -495,6 +495,26 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
 .schedule-grid::-webkit-scrollbar-track { background: transparent; }
 .schedule-grid::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
 .rev-row.is-dragging { opacity: 0.4; background: var(--surface2); }
+
+/* --- Módulo de Informativos --- */
+.info-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; margin-top: 20px; }
+.info-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow); display: flex; flex-direction: column; transition: transform 0.2s; }
+.info-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+.info-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
+.info-badges { display: flex; gap: 6px; }
+.badge-stf { background: #e3f2fd; color: #1565c0; padding: 3px 8px; border-radius: 4px; font-size: 10px; font-weight: 700; }
+.badge-stj { background: #ffebee; color: #c62828; padding: 3px 8px; border-radius: 4px; font-size: 10px; font-weight: 700; }
+.info-title { font-family: 'DM Serif Display', serif; font-size: 18px; margin-bottom: 4px; }
+.info-materia { font-size: 11px; font-weight: 600; color: var(--accent); text-transform: uppercase; letter-spacing: 0.5px; }
+.info-conteudo { font-size: 12px; color: var(--text3); margin-bottom: 12px; }
+.info-tese { background: var(--surface2); padding: 12px; border-radius: 6px; font-size: 13px; color: var(--text2); line-height: 1.5; margin-bottom: 16px; flex-grow: 1; border-left: 3px solid var(--border); }
+.info-footer { display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border); padding-top: 12px; }
+.info-status { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; }
+.status-dot { width: 8px; height: 8px; border-radius: 50%; }
+.status-verde { background: var(--green); box-shadow: 0 0 6px rgba(39, 174, 96, 0.4); }
+.status-amarelo { background: var(--warn); box-shadow: 0 0 6px rgba(212, 132, 42, 0.4); }
+.status-vermelho { background: var(--danger); box-shadow: 0 0 6px rgba(192, 57, 43, 0.4); }
+  
 </style>
 </head>
 <body>
@@ -516,6 +536,7 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
     <button class="nav-btn" onclick="showPage('dashboard')"><span class="ico">📊</span><span>Dashboard</span></button>
     <button class="nav-btn" onclick="showPage('analytics')"><span class="ico">📈</span><span>Analytics</span></button>
     <button class="nav-btn" onclick="showPage('leis')"><span class="ico">📖</span><span>Lei Seca</span></button>
+    <button class="nav-btn" onclick="showPage('informativos')"><span class="ico">⚖️</span><span>Jurisprudência</span></button>
     <button class="nav-btn" onclick="showPage('revisao')"><span class="ico">🗓️</span><span>Revisão</span></button>
     <button class="nav-btn" onclick="fazerLogout()" style="margin-top:auto; color:var(--danger);"><span class="ico">🚪</span><span>Sair</span></button>
   </nav>
@@ -701,18 +722,24 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
     </div>
 
    <div class="card" style="padding: 0; overflow: hidden; border-radius: 8px;">
+     
+     <!-- Resumo do Desempenho Geral da Matéria -->
+     <div id="rev-materia-summary" style="padding: 16px 24px; background: var(--surface); border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
+        <span style="font-family: 'DM Serif Display', serif; font-size: 20px; color: var(--accent);" id="rev-materia-title">Matéria</span>
+        <div id="rev-materia-badge"></div>
+     </div>
+
+     <!-- Cabeçalho das Colunas Otimizadas -->
      <div class="rev-table-header">
-        <div class="rev-col-name">Tópico do Edital</div>
-        <div class="rev-col-desempenho">Desempenho</div>
-        <div class="rev-col-volume">Volume</div>
-        <div class="rev-col-tempo">Tempo</div>
-        <div class="rev-col-tendencia">Tendência</div>
-        <div class="rev-col-juris">Jurisprudência</div>
-        <div class="rev-col-date">Último Estudo</div>
-        <div class="rev-row-actions"></div>
-      </div>
-      <div id="rev-content-list" style="max-height: 55vh; overflow-y: auto; scrollbar-width: thin;">
-         </div>
+       <div class="rev-col-name">Tópico & Prioridade</div>
+       <div class="rev-col-ultimo">Última Sessão</div>
+       <div class="rev-col-geral">Geral & Tendência</div>
+       <div class="rev-col-juris">Jurisprudência</div>
+       <div class="rev-col-date">Último Estudo</div>
+       <div class="rev-row-actions"></div>
+     </div>
+     <div id="rev-content-list" style="max-height: 55vh; overflow-y: auto; scrollbar-width: thin;">
+        </div>
       
       <div style="padding: 12px 24px; background: var(--surface2); border-top: 1px solid var(--border); display: flex; gap: 10px; align-items: center;">
           <span style="color:var(--text3); font-size:16px;">↳</span>
@@ -720,6 +747,64 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
           <button class="btn btn-secondary btn-sm" onclick="addConteudoRev()">+ Inserir Tópico</button>
       </div>
     </div>
+  </section>
+<section class="page" id="page-informativos">
+    <h1 class="page-title">Jurisprudência & Informativos</h1>
+    <p class="page-sub">Registre teses do STF/STJ e controle o ciclo de revisão para não esquecer os julgados.</p>
+
+    <div class="card" style="margin-bottom: 24px;">
+      <div class="card-title">📝 Registrar Novo Informativo / Súmula</div>
+      
+      <div class="form-group" style="background: var(--surface2); padding: 12px; border-radius: 6px; margin-bottom: 16px; border: 1px dashed var(--border);">
+        <label class="form-label">🤖 Auto-preencher com PDF (Extração de texto)</label>
+        <input type="file" id="pdf-upload" accept="application/pdf" onchange="processarPDF(event)">
+        <div style="font-size: 11px; color: var(--text3); margin-top: 4px;">Faça upload do PDF do informativo para tentar extrair os dados.</div>
+      </div>
+
+      <div class="grid-3" style="gap: 12px; margin-bottom: 12px;">
+        <div>
+          <label class="form-label">Tribunal</label>
+          <div class="select-wrap">
+            <select id="info-tribunal">
+              <option value="STF">STF</option>
+              <option value="STJ">STJ</option>
+              <option value="Súmula">Súmula / Outros</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label class="form-label">Número (Ex: Inf. 1120)</label>
+          <input type="text" id="info-numero" placeholder="Nº do informativo">
+        </div>
+        <div>
+          <label class="form-label">Matéria</label>
+          <div class="select-wrap"><select id="info-materia-select"></select></div>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Tópico / Assunto</label>
+        <input type="text" id="info-conteudo" placeholder="Ex: Controle de Constitucionalidade">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Tese Fixada / Resumo do Julgado</label>
+        <textarea id="info-tese" placeholder="A tese lida do PDF aparecerá aqui para você limpar o excesso..." style="min-height: 80px;"></textarea>
+      </div>
+      <button class="btn btn-primary" onclick="salvarInformativo()" style="width: 100%; justify-content: center;">+ Salvar Jurisprudência</button>
+    </div>
+
+    <div class="filter-bar" style="margin-bottom: 16px;">
+      <div class="filter-group">
+        <label class="filter-label">Filtrar por Status de Revisão</label>
+        <div class="toggle-group" id="info-filters">
+          <div class="toggle-pill active" onclick="filtrarInfo('todos')">Todos</div>
+          <div class="toggle-pill" onclick="filtrarInfo('revisar')">⚠️ Precisam de Revisão</div>
+          <div class="toggle-pill" onclick="filtrarInfo('stf')">STF</div>
+          <div class="toggle-pill" onclick="filtrarInfo('stj')">STJ</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="info-container" class="info-grid"></div>
   </section>
 </main>
 </div>
@@ -1156,6 +1241,7 @@ function showPage(name) {
   if (name==='analytics') renderAnalytics();
   if (name==='leis') renderLeis();
   if (name==='revisao') renderRevisao();
+  if (name==='informativos') renderInformativos();
 }
  
 
@@ -2648,6 +2734,8 @@ let indexArrastadoCt = null;
 function renderRevisao() {
     const tabsEl = document.getElementById('rev-tabs');
     const listEl = document.getElementById('rev-content-list');
+    const titleEl = document.getElementById('rev-materia-title');
+    const badgeEl = document.getElementById('rev-materia-badge');
     
     if (!tabsEl || !listEl) return;
     if (!state.materias || state.materias.length === 0) return;
@@ -2670,10 +2758,23 @@ function renderRevisao() {
         </button>
     `).join('');
 
-    // 2. Desenha a tabela com todos os dados
+    // 2. Coleta dados da Matéria e Preenche o Resumo Geral no Topo
     const mat = state.materias[revCurrentMateriaIndex];
     const conteudos = mat.conteudos || [];
+    
+    if (titleEl) titleEl.textContent = mat.name;
+    if (badgeEl) {
+        const matAgg = state.aggregates.materias[mat.name];
+        let matPerc = null;
+        if (matAgg && matAgg.totalQs > 0) {
+            matPerc = Math.round((matAgg.correctQs / matAgg.totalQs) * 100);
+        }
+        badgeEl.innerHTML = matPerc !== null 
+            ? `<span class="rev-badge ${matPerc >= 80 ? 'rb-bom' : matPerc >= 60 ? 'rb-medio' : 'rb-ruim'}" style="font-size: 13px; padding: 6px 14px;">Aproveitamento Geral: ${matPerc}%</span>` 
+            : `<span class="rev-badge rb-fazer" style="font-size: 13px; padding: 6px 14px;">Sem questões resolvidas</span>`;
+    }
 
+    // 3. Desenha a tabela com todos os dados
     if (conteudos.length === 0) {
         listEl.innerHTML = '<div style="padding:20px; text-align:center;">Nenhum tópico cadastrado.</div>';
     } else {
@@ -2683,31 +2784,57 @@ function renderRevisao() {
             const agg = state.aggregates.conteudos[ctId];
             const isHidden = ct.hidden || false;
             
+            // --- COLUNA: DESEMPENHO GERAL (DIREITA) ---
             const percVal = (agg && agg.totalQs > 0) ? Math.round((agg.correctQs / agg.totalQs) * 100) : null;
-            const lastDate = (agg && agg.lastStudied) ? new Date(agg.lastStudied).toLocaleDateString('pt-BR') : '—';
-            const badgeHtml = percVal !== null ? `<span class="rev-badge ${percVal >= 80 ? 'rb-bom' : percVal >= 60 ? 'rb-medio' : 'rb-ruim'}" style="font-family:'DM Mono',monospace; font-size:12px;">${percVal}%</span>` : '<span style="font-size:11px; color:var(--text3);">—</span>';
-
-            // 1. Tendência (Evolução)
+            const badgeGeralHtml = percVal !== null ? `<span class="rev-badge ${percVal >= 80 ? 'rb-bom' : percVal >= 60 ? 'rb-medio' : 'rb-ruim'}">${percVal}%</span>` : '<span style="font-size:11px; color:var(--text3);">—</span>';
+            const volText = (agg && agg.totalQs > 0) ? `<span style="font-size:11px;">${agg.correctQs}/${agg.totalQs} qs</span>` : '<span style="color:var(--text3); font-size:10px;">—</span>';
             const trendStr = calcTrend(ctId);
-            const trendIcon = trendStr === '↑' ? '<span style="color:var(--green); font-size:16px; font-weight:bold;">↑</span>' : (trendStr === '↓' ? '<span style="color:var(--danger); font-size:16px; font-weight:bold;">↓</span>' : '<span style="color:var(--text3); font-size:16px; font-weight:bold;">→</span>');
+            const trendIcon = trendStr === '↑' ? '<span style="color:var(--green); font-size:14px; font-weight:bold;">↑</span>' : (trendStr === '↓' ? '<span style="color:var(--danger); font-size:14px; font-weight:bold;">↓</span>' : '<span style="color:var(--text3); font-size:14px; font-weight:bold;">→</span>');
 
-            // 2. Volume de Questões e Tempo
-            const volText = (agg && agg.totalQs > 0) ? `<span style="font-size:12px;">${agg.correctQs}/${agg.totalQs}</span>` : '<span style="color:var(--text3); font-size:11px;">—</span>';
-            const tempoStr = (agg && agg.totalTime > 0) ? `<span style="font-size:12px;">${formatTime(agg.totalTime)}</span>` : '<span style="color:var(--text3); font-size:11px;">—</span>';
+            // --- COLUNA: ÚLTIMO DESEMPENHO (ESQUERDA) ---
+            let lastPercVal = null;
+            if (agg && agg.last5 && agg.last5.length > 0) {
+                lastPercVal = Math.round(agg.last5[agg.last5.length - 1].perc * 100);
+            }
+            const badgeUltimoHtml = lastPercVal !== null ? `<span class="rev-badge ${lastPercVal >= 80 ? 'rb-bom' : lastPercVal >= 60 ? 'rb-medio' : 'rb-ruim'}">${lastPercVal}%</span>` : '<span style="font-size:11px; color:var(--text3);">—</span>';
+            
+            // --- MATURIDADE E PRIORIDADE ---
+            let faseTag = '<span style="font-size:10px; background:var(--surface2); color:var(--text2); padding:2px 6px; border-radius:4px;">📘 Inédito</span>';
+            if (agg && agg.totalQs > 0) {
+                if (agg.totalQs > 30) {
+                    faseTag = percVal >= 80 
+                        ? '<span style="font-size:10px; background:#e8f5ec; color:var(--green); padding:2px 6px; border-radius:4px;">🏆 Domínio</span>'
+                        : '<span style="font-size:10px; background:var(--warn-light); color:var(--warn); padding:2px 6px; border-radius:4px;">⚠️ Reforço</span>';
+                } else {
+                    faseTag = '<span style="font-size:10px; background:var(--accent-light); color:var(--accent); padding:2px 6px; border-radius:4px;">📝 Prática</span>';
+                }
+            }
 
-            // 3. Dias sem estudar
             let daysText = "—";
+            let prioIcon = "⚪ Aguardando";
+            const lastDate = (agg && agg.lastStudied) ? new Date(agg.lastStudied).toLocaleDateString('pt-BR') : '—';
+
             if (agg && agg.lastStudied) {
                 const now = new Date();
                 now.setHours(0,0,0,0);
+                
                 const lastDateObj = new Date(agg.lastStudied);
                 lastDateObj.setHours(0,0,0,0);
+                
                 const diffTime = Math.abs(now - lastDateObj);
                 const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
                 daysText = diffDays === 0 ? "hoje" : `há ${diffDays}d`;
+
+                if ((percVal !== null && percVal < 60) || diffDays > 21) {
+                    prioIcon = "🔥 Urgente";
+                } else if ((percVal !== null && percVal < 80) || diffDays > 14) {
+                    prioIcon = "🟡 Atenção";
+                } else {
+                    prioIcon = "✅ Consolidado";
+                }
             }
 
-            // 4. Jurisprudência
+            // --- JURISPRUDÊNCIA ---
             const jurisDone = ct.jurisDone || false;
             const jurisDate = ct.jurisDate ? new Date(ct.jurisDate).toLocaleDateString('pt-BR') : '—';
 
@@ -2723,15 +2850,29 @@ function renderRevisao() {
                      title="Clique e segure para reordenar"
                      style="cursor: grab;">
                     
-                    <div class="rev-col-name" style="gap:6px;">
-                        <button class="btn-rev-toggle" onclick="toggleRevContent(${revCurrentMateriaIndex}, ${ctIdx})">👁️</button>
-                        <span style="font-weight: 500;">${escHtml(ctName)}</span>
+                    <div class="rev-col-name" style="gap:6px; flex-direction:column; align-items:flex-start; justify-content:center;">
+                        <div style="display:flex; align-items:center;">
+                            <button class="btn-rev-toggle" onclick="toggleRevContent(${revCurrentMateriaIndex}, ${ctIdx})">👁️</button>
+                            <span style="font-weight: 500;">${escHtml(ctName)}</span>
+                        </div>
+                        <div style="padding-left: 28px; display:flex; align-items:center; gap:6px;">
+                            ${faseTag}
+                            <span style="font-size:10px; color:var(--text3); font-weight:600;">${prioIcon}</span>
+                        </div>
                     </div>
 
-                    <div class="rev-col-desempenho">${badgeHtml}</div>
-                    <div class="rev-col-volume">${volText}</div>
-                    <div class="rev-col-tempo">${tempoStr}</div>
-                    <div class="rev-col-tendencia">${trendIcon}</div>
+                    <div class="rev-col-ultimo">
+                        ${badgeUltimoHtml}
+                        <span style="font-size:9px; color:var(--text3); text-transform:uppercase; letter-spacing:0.5px;">Última sessão</span>
+                    </div>
+
+                    <div class="rev-col-geral">
+                        <div style="display:flex; align-items:center; gap:6px;">
+                            ${badgeGeralHtml}
+                            ${trendIcon}
+                        </div>
+                        ${volText}
+                    </div>
                     
                     <div class="rev-col-juris">
                         <input type="checkbox" style="cursor:pointer; accent-color:var(--accent); width:16px; height:16px;" ${jurisDone ? 'checked' : ''} onclick="toggleRevJuris(${revCurrentMateriaIndex}, ${ctIdx})">
@@ -2739,7 +2880,7 @@ function renderRevisao() {
                     </div>
                     
                     <div class="rev-col-date">
-                        <span style="font-size:12px;">${lastDate}</span>
+                        <span style="font-size:12px; font-weight:500;">${lastDate}</span>
                         <span class="rev-days-since">${daysText}</span>
                     </div>
                     
@@ -3231,7 +3372,190 @@ function renderAnalytics() {
     }
 }
 
+// ==========================================
+// MÓDULO DE INFORMATIVOS & JURISPRUDÊNCIA COM PDF
+// ==========================================
+let currentInfoFilter = 'todos';
 
+async function loadInformativos() {
+  try {
+    const doc = await getUserRef().collection('Dados').doc('Informativos').get();
+    if (doc.exists) {
+      state.informativos = doc.data().lista || [];
+    } else {
+      state.informativos = [];
+    }
+  } catch (e) {
+    console.error("Erro ao carregar informativos", e);
+    state.informativos = [];
+  }
+}
+
+// Inicia o carregamento logo após as matérias
+setTimeout(() => {
+  loadInformativos().then(() => {
+    populateInfoMateriaSelect();
+    renderInformativos();
+  });
+}, 2000);
+
+function populateInfoMateriaSelect() {
+  const sel = document.getElementById('info-materia-select');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">— Selecione —</option>' + 
+    state.materias.map(m => `<option value="${m.name}">${m.name}</option>`).join('');
+}
+
+async function processarPDF(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  showToast("Lendo PDF... Isso pode levar alguns segundos.");
+  const fileReader = new FileReader();
+  
+  fileReader.onload = async function() {
+    const typedarray = new Uint8Array(this.result);
+    try {
+      const pdf = await window.pdfjsLib.getDocument(typedarray).promise;
+      let textoCompleto = "";
+
+      const maxPages = Math.min(pdf.numPages, 3);
+      for (let i = 1; i <= maxPages; i++) {
+        const page = await pdf.getPage(i);
+        const textContent = await page.getTextContent();
+        const pageText = textContent.items.map(item => item.str).join(" ");
+        textoCompleto += pageText + " \n";
+      }
+
+      const textoUpper = textoCompleto.toUpperCase();
+
+      if (textoUpper.includes("SUPREMO TRIBUNAL FEDERAL") || textoUpper.includes("STF")) {
+        document.getElementById('info-tribunal').value = "STF";
+      } else if (textoUpper.includes("SUPERIOR TRIBUNAL DE JUSTIÇA") || textoUpper.includes("STJ")) {
+        document.getElementById('info-tribunal').value = "STJ";
+      }
+
+      const matchInfo = textoUpper.match(/INFORMATIVO.*?(\d+)/);
+      if (matchInfo && matchInfo[1]) {
+        document.getElementById('info-numero').value = matchInfo[1];
+      }
+
+      const inicioTese = textoCompleto.substring(0, 800).replace(/\s\s+/g, ' '); 
+      document.getElementById('info-tese').value = `[TEXTO EXTRAÍDO DO PDF - APAGUE O EXCESSO E ORGANIZE]:\n\n${inicioTese}...`;
+
+      showToast("PDF processado! Revise e ajuste os dados.");
+      event.target.value = ''; 
+    } catch (error) {
+      console.error("Erro ao ler PDF: ", error);
+      alert("Ocorreu um erro ao tentar ler este PDF.");
+    }
+  };
+  fileReader.readAsArrayBuffer(file);
+}
+
+async function salvarInformativo() {
+  const tribunal = document.getElementById('info-tribunal').value;
+  const numero = document.getElementById('info-numero').value.trim();
+  const materia = document.getElementById('info-materia-select').value;
+  const conteudo = document.getElementById('info-conteudo').value.trim();
+  const tese = document.getElementById('info-tese').value.trim();
+
+  if (!numero || !materia || !tese) { showToast("Preencha Número, Matéria e Tese!"); return; }
+
+  const novoInfo = {
+    id: crypto.randomUUID(), tribunal, numero, materia, conteudo, tese,
+    dataCriacao: new Date().toISOString(), ultimaRevisao: new Date().toISOString(), historicoRevisoes: 1
+  };
+
+  if (!state.informativos) state.informativos = [];
+  state.informativos.unshift(novoInfo);
+
+  await getUserRef().collection('Dados').doc('Informativos').set({ lista: state.informativos });
+  
+  document.getElementById('info-numero').value = '';
+  document.getElementById('info-conteudo').value = '';
+  document.getElementById('info-tese').value = '';
+  
+  renderInformativos();
+  showToast("Jurisprudência salva com sucesso! ⚖️");
+}
+
+function calcularStatusInfo(isoDate) {
+  const dias = Math.floor((Date.now() - new Date(isoDate)) / (1000 * 60 * 60 * 24));
+  if (dias <= 7) return { cor: 'status-verde', texto: 'Revisado', dias };
+  if (dias <= 30) return { cor: 'status-amarelo', texto: 'Revisão pendente', dias };
+  return { cor: 'status-vermelho', texto: 'Atrasado!', dias };
+}
+
+async function registrarRevisaoInfo(id) {
+  const info = state.informativos.find(i => i.id === id);
+  if (!info) return;
+  info.ultimaRevisao = new Date().toISOString();
+  info.historicoRevisoes = (info.historicoRevisoes || 0) + 1;
+  await getUserRef().collection('Dados').doc('Informativos').set({ lista: state.informativos });
+  renderInformativos();
+  showToast("Revisão registrada! Ciclo renovado. 🔄");
+}
+
+async function deletarInfo(id) {
+  if (!confirm("Excluir este informativo definitivamente?")) return;
+  state.informativos = state.informativos.filter(i => i.id !== id);
+  await getUserRef().collection('Dados').doc('Informativos').set({ lista: state.informativos });
+  renderInformativos();
+}
+
+function filtrarInfo(filtro) {
+  currentInfoFilter = filtro;
+  document.querySelectorAll('#info-filters .toggle-pill').forEach(el => el.classList.remove('active'));
+  event.target.classList.add('active');
+  renderInformativos();
+}
+
+function renderInformativos() {
+  const container = document.getElementById('info-container');
+  if (!container) return;
+  
+  if (!state.informativos || state.informativos.length === 0) {
+    container.innerHTML = '<div class="empty" style="grid-column: 1/-1;"><p>Nenhum informativo registrado.</p></div>';
+    return;
+  }
+
+  let filtrados = state.informativos;
+  if (currentInfoFilter === 'revisar') filtrados = filtrados.filter(i => calcularStatusInfo(i.ultimaRevisao).dias > 7);
+  else if (currentInfoFilter === 'stf') filtrados = filtrados.filter(i => i.tribunal === 'STF');
+  else if (currentInfoFilter === 'stj') filtrados = filtrados.filter(i => i.tribunal === 'STJ');
+
+  container.innerHTML = filtrados.map(info => {
+    const status = calcularStatusInfo(info.ultimaRevisao);
+    const badgeClass = info.tribunal === 'STF' ? 'badge-stf' : (info.tribunal === 'STJ' ? 'badge-stj' : 'badge-neutral');
+    
+    return `
+      <div class="info-card">
+        <div class="info-header">
+          <div>
+            <div class="info-materia">${escHtml(info.materia)}</div>
+            <div class="info-title">Inf. ${escHtml(info.numero)}</div>
+          </div>
+          <div class="info-badges"><span class="${badgeClass}">${info.tribunal}</span></div>
+        </div>
+        
+        <div class="info-conteudo">📖 ${escHtml(info.conteudo)}</div>
+        <div class="info-tese">"${escHtml(info.tese)}"</div>
+        
+        <div class="info-footer">
+          <div class="info-status">
+            <div class="status-dot ${status.cor}"></div>
+            <span style="color:var(--text2);">${status.texto} (${status.dias}d)</span>
+          </div>
+          <div style="display:flex; gap: 8px;">
+            <button class="btn btn-primary btn-sm" onclick="registrarRevisaoInfo('${info.id}')">✓ Revisar</button>
+            <button class="btn-ghost" style="color:var(--danger); border:none; padding:4px;" onclick="deletarInfo('${info.id}')">✕</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
   
 </script>
 </body>
