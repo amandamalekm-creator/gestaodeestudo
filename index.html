@@ -1876,7 +1876,6 @@ function renderManualCtList() {
   });
 }
 
-// Adaptação p/ salvar sessão manual com as mesmas lógicas reativas
 async function saveManualSession() {
   const materia=document.getElementById('manual-materia-select').value;
   if (!materia) { showToast('Selecione uma matéria.'); return; }
@@ -1901,18 +1900,20 @@ async function saveManualSession() {
     date: dateObj.toISOString(),
     materia, duration,
     manual: true, obs,
-    conteudos: manualConteudos.map(c=>({c}))
+    // Correção: Mapeando os dados de conteúdo diretamente
+    conteudos: manualConteudos.map(c => ({
+        id: c.id || crypto.randomUUID(),
+        name: c.name,
+        total: c.total,
+        correct: c.correct,
+        onlyTheory: c.onlyTheory
+    }))
   };
 
   if ((!novaSessao.conteudos || !novaSessao.conteudos.length) && !novaSessao.obs){
     showToast("Adicione conteúdo ou observação.");
     return;
   }
-
-  novaSessao.conteudos = novaSessao.conteudos.map(c=>({
-    c,
-    id: c.id || crypto.randomUUID()
-  }));
 
   state.sessions.unshift(novaSessao);
   state.sessions.sort((a,b)=>new Date(b.date)-new Date(a.date));
