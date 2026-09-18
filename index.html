@@ -607,7 +607,10 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
 </section>
 
 <section class="page" id="page-dashboard">
-  <h1 class="page-title">Dashboard</h1>
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 4px;">
+    <h1 class="page-title" style="margin-bottom:0;">Dashboard</h1>
+    <button class="btn btn-ghost btn-sm" onclick="recalcularAgregados()">🛠️ Sincronizar & Corrigir Dados</button>
+  </div>
   <p class="page-sub">Banco de horas e estatísticas completas de desempenho.</p>
   <div class="grid-3" style="margin-bottom:20px;" id="stats-geral"></div>
   <div class="card" style="margin-bottom:24px;">
@@ -1197,6 +1200,43 @@ function getAggTotal() {
     tS += (m.totalTime || 0);
   });
   return { totalQs: tQ, correctQs: tC, totalTime: tS };
+}
+
+// ==========================================
+// FERRAMENTA DE CORREÇÃO DE DADOS (AUTO-HEAL)
+// ==========================================
+async function recalcularAgregados() {
+    if(!confirm("Isso fará uma varredura completa no seu histórico para recalcular notas e remover os 0% fantasmas. Deseja continuar?")) return;
+    
+    showToast("⏳ Recalculando... Não feche a página.");
+    
+    try {
+        // 1. Puxa TODAS as sessões do banco na ordem cronológica (do mais antigo pro mais novo)
+        const snap = await getUserRef().collection('Sessoes').orderBy('date', 'asc').get();
+        
+        // 2. Zera a memória de agregados atual
+        state.aggregates = { materias: {}, conteudos: {} };
+        
+        // 3. Reconstrói a matemática passando por cada sessão
+        snap.docs.forEach(doc => {
+            const session = doc.data();
+            
+            // Garante a compatibilidade ignorando sessões antigas com erro de formato
+            if (!session.conteudos) return;
+            
+            // Roda a nossa função consertada de agregação
+            updateAggregates(session);
+        });
+        
+        // 4. Salva o resultado perfeito na nuvem
+        await saveAggregatesDB();
+        
+        showToast("✅ Dados corrigidos com sucesso! Atualizando tela...");
+        setTimeout(() => location.reload(), 1500);
+    } catch (e) {
+        console.error(e);
+        showToast("❌ Erro ao recalcular dados.");
+    }
 }
 
 // ══════════════════════════════════════════════════
