@@ -295,7 +295,7 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
     text-transform: uppercase; 
 }
 /* Colunas (Aplicado no HTML) */
-.rev-col-name { flex: 1; display: flex; align-items: center; min-width: 150px; }
+.rev-col-name { flex: 1; display: flex; align-items: center; min-width: 250px; overflow: hidden; }
 .rev-col-ultimo { width: 90px; min-width: 90px; flex-shrink: 0; display: flex; justify-content: center; text-align: center; }
 .rev-col-geral { width: 90px; min-width: 90px; flex-shrink: 0; display: flex; justify-content: center; text-align: center; }
 .rev-col-tendencia { width: 80px; min-width: 80px; flex-shrink: 0; display: flex; justify-content: center; text-align: center; }
@@ -1130,10 +1130,11 @@ function updateAggregates(session){
 
    agg.lastStudied = date;
 
-    // Se não fez questões, perc vira NULL (assim o sistema ignora na média)
-    const perc = (!ct.onlyTheory && ct.total > 0) ? (ct.correct / ct.total) : null;
-    agg.last5.push({date, perc});
-    if(agg.last5.length>5) agg.last5.shift();
+   // Se não fez questões, perc vira NULL e salvamos o tipo do estudo
+   const perc = (!ct.onlyTheory && ct.total > 0) ? (ct.correct / ct.total) : null;
+   const typeStr = ct.studyType || 'Leitura';
+   agg.last5.push({date, perc, studyType: typeStr});
+   if(agg.last5.length>5) agg.last5.shift();
   });
 }
 
@@ -1474,18 +1475,20 @@ function toggleModalCtBody(i) {
 }
 
 function updateModalCt(i) {
-  const noQ=document.getElementById('mct-noq-'+i).checked;
-  const total=parseInt(document.getElementById('mct-total-'+i).value)||0;
-  const correct=parseInt(document.getElementById('mct-correct-'+i).value)||0;
-  modalConteudos[i].onlyTheory=noQ;
-  modalConteudos[i].total=noQ?0:total;
-  modalConteudos[i].correct=noQ?0:correct;
-  const sum=document.getElementById('mcts-'+i);
-  if (sum) sum.textContent=ctSummaryText(modalConteudos[i]);
+  const noQ = document.getElementById('mct-noq-'+i).checked;
+  const type = document.getElementById('mct-type-'+i)?.value || 'Leitura';
+  const total = parseInt(document.getElementById('mct-total-'+i).value)||0;
+  const correct = parseInt(document.getElementById('mct-correct-'+i).value)||0;
+  modalConteudos[i].onlyTheory = noQ;
+  modalConteudos[i].studyType = noQ ? type : 'Teoria';
+  modalConteudos[i].total = noQ ? 0 : total;
+  modalConteudos[i].correct = noQ ? 0 : correct;
+  const sum = document.getElementById('mcts-'+i);
+  if (sum) sum.textContent = ctSummaryText(modalConteudos[i]);
 }
 
 function ctSummaryText(ct) {
-  if (ct.onlyTheory) return 'Só teoria';
+  if (ct.onlyTheory) return ct.studyType || 'Só teoria';
   if (ct.total===0) return 'Sem questões';
   const p=Math.round(ct.correct/ct.total*100);
   return `${ct.correct}/${ct.total} (${p}%)`;
@@ -1507,9 +1510,21 @@ function renderModalCtList() {
       </div>
       <div class="session-ct-body" id="mctb-${i}">
         <div class="form-group" style="margin-bottom:10px;">
-          <div class="checkbox-wrap" style="padding:9px 12px;">
+          <div class="checkbox-wrap" style="padding:9px 12px; margin-bottom: 8px;">
             <input type="checkbox" id="mct-noq-${i}" ${ct.onlyTheory?'checked':''} onchange="updateModalCt(${i})">
-            <label for="mct-noq-${i}" style="font-size:13px;">Não resolvi questões neste conteúdo</label>
+            <label for="mct-noq-${i}" style="font-size:13px;">Não resolvi questões</label>
+          </div>
+          <div id="mct-type-wrap-${i}" style="display:${ct.onlyTheory?'block':'none'}; padding: 0 4px;">
+            <label class="form-label" style="font-size:11px; margin-bottom:4px;">Tipo de Estudo</label>
+            <div class="select-wrap">
+              <select id="mct-type-${i}" onchange="updateModalCt(${i})" style="padding:8px 12px; font-size:13px; background:var(--surface);">
+                <option value="Leitura" ${ct.studyType==='Leitura'?'selected':''}>Leitura (PDF / Livro)</option>
+                <option value="Lei Seca" ${ct.studyType==='Lei Seca'?'selected':''}>Lei Seca</option>
+                <option value="Videoaula" ${ct.studyType==='Videoaula'?'selected':''}>Videoaula</option>
+                <option value="Caderno de Erros" ${ct.studyType==='Caderno de Erros'?'selected':''}>Caderno de Erros</option>
+                <option value="Revisão" ${ct.studyType==='Revisão'?'selected':''}>Revisão Passiva</option>
+              </select>
+            </div>
           </div>
         </div>
         <div id="mct-qform-${i}" style="display:${ct.onlyTheory?'none':'block'};">
@@ -1526,6 +1541,7 @@ function renderModalCtList() {
     const cb=document.getElementById('mct-noq-'+i);
     if(cb) cb.addEventListener('change',()=>{
       document.getElementById('mct-qform-'+i).style.display=cb.checked?'none':'block';
+      document.getElementById('mct-type-wrap-'+i).style.display=cb.checked?'block':'none';
     });
   });
 }
@@ -1558,7 +1574,8 @@ async function saveSession() {
             name: c.name,
             total: c.total,
             correct: c.correct,
-            onlyTheory: c.onlyTheory
+            onlyTheory: c.onlyTheory,
+            studyType: c.studyType || 'Leitura'
         }))
     };
 
@@ -1867,14 +1884,16 @@ function toggleManualCtBody(i) {
 }
 
 function updateManualCt(i) {
-  const noQ=document.getElementById('mact-noq-'+i).checked;
-  const total=parseInt(document.getElementById('mact-total-'+i).value)||0;
-  const correct=parseInt(document.getElementById('mact-correct-'+i).value)||0;
-  manualConteudos[i].onlyTheory=noQ;
-  manualConteudos[i].total=noQ?0:total;
-  manualConteudos[i].correct=noQ?0:correct;
-  const sum=document.getElementById('macts-'+i);
-  if(sum) sum.textContent=ctSummaryText(manualConteudos[i]);
+  const noQ = document.getElementById('mact-noq-'+i).checked;
+  const type = document.getElementById('mact-type-'+i)?.value || 'Leitura';
+  const total = parseInt(document.getElementById('mact-total-'+i).value)||0;
+  const correct = parseInt(document.getElementById('mact-correct-'+i).value)||0;
+  manualConteudos[i].onlyTheory = noQ;
+  manualConteudos[i].studyType = noQ ? type : 'Teoria';
+  manualConteudos[i].total = noQ ? 0 : total;
+  manualConteudos[i].correct = noQ ? 0 : correct;
+  const sum = document.getElementById('macts-'+i);
+  if(sum) sum.textContent = ctSummaryText(manualConteudos[i]);
 }
 
 function renderManualCtList() {
@@ -1893,9 +1912,21 @@ function renderManualCtList() {
       </div>
       <div class="session-ct-body" id="mactb-${i}">
         <div class="form-group" style="margin-bottom:10px;">
-          <div class="checkbox-wrap" style="padding:9px 12px;">
+          <div class="checkbox-wrap" style="padding:9px 12px; margin-bottom: 8px;">
             <input type="checkbox" id="mact-noq-${i}" ${ct.onlyTheory?'checked':''} onchange="updateManualCt(${i})">
-            <label for="mact-noq-${i}" style="font-size:13px;">Não resolvi questões neste conteúdo</label>
+            <label for="mact-noq-${i}" style="font-size:13px;">Não resolvi questões</label>
+          </div>
+          <div id="mact-type-wrap-${i}" style="display:${ct.onlyTheory?'block':'none'}; padding: 0 4px;">
+            <label class="form-label" style="font-size:11px; margin-bottom:4px;">Tipo de Estudo</label>
+            <div class="select-wrap">
+              <select id="mact-type-${i}" onchange="updateManualCt(${i})" style="padding:8px 12px; font-size:13px; background:var(--surface);">
+                <option value="Leitura" ${ct.studyType==='Leitura'?'selected':''}>Leitura (PDF / Livro)</option>
+                <option value="Lei Seca" ${ct.studyType==='Lei Seca'?'selected':''}>Lei Seca</option>
+                <option value="Videoaula" ${ct.studyType==='Videoaula'?'selected':''}>Videoaula</option>
+                <option value="Caderno de Erros" ${ct.studyType==='Caderno de Erros'?'selected':''}>Caderno de Erros</option>
+                <option value="Revisão" ${ct.studyType==='Revisão'?'selected':''}>Revisão Passiva</option>
+              </select>
+            </div>
           </div>
         </div>
         <div id="mact-qform-${i}" style="display:${ct.onlyTheory?'none':'block'};">
@@ -1912,6 +1943,7 @@ function renderManualCtList() {
     const cb=document.getElementById('mact-noq-'+i);
     if(cb) cb.addEventListener('change',()=>{
       document.getElementById('mact-qform-'+i).style.display=cb.checked?'none':'block';
+      document.getElementById('mact-type-wrap-'+i).style.display=cb.checked?'block':'none';
     });
   });
 }
@@ -1943,11 +1975,12 @@ async function saveManualSession() {
     // Correção: Mapeando os dados de conteúdo diretamente
     conteudos: manualConteudos.map(c => ({
         id: c.id || crypto.randomUUID(),
-        name: c.name,
-        total: c.total,
-        correct: c.correct,
-        onlyTheory: c.onlyTheory
-    }))
+            name: c.name,
+            total: c.total,
+            correct: c.correct,
+            onlyTheory: c.onlyTheory,
+            studyType: c.studyType || 'Leitura'
+        }))
   };
 
   if ((!novaSessao.conteudos || !novaSessao.conteudos.length) && !novaSessao.obs){
@@ -2732,25 +2765,29 @@ function renderRevisao() {
             const agg = state.aggregates.conteudos[ctId];
             const isHidden = ct.hidden || false;
             
-            // --- APROVEITAMENTO GERAL ---
+           // --- APROVEITAMENTO GERAL ---
             const percVal = (agg && agg.totalQs > 0) ? Math.round((agg.correctQs / agg.totalQs) * 100) : null;
-            const badgeGeralHtml = percVal !== null 
-                ? `<span class="rev-badge ${percVal >= 80 ? 'rb-bom' : percVal >= 60 ? 'rb-medio' : 'rb-ruim'}" style="font-family: 'DM Mono', monospace; font-size: 12px;">${percVal}%</span>` 
-                : `<span style="color:var(--text3); font-size:12px;">—</span>`;
+            let badgeGeralHtml = `<span style="color:var(--text3); font-size:12px;">—</span>`;
+            
+            if (percVal !== null) {
+                badgeGeralHtml = `<span class="rev-badge ${percVal >= 80 ? 'rb-bom' : percVal >= 60 ? 'rb-medio' : 'rb-ruim'}" style="font-family: 'DM Mono', monospace; font-size: 12px;">${percVal}%</span>`;
+            } else if (agg && agg.totalTime > 0) {
+                badgeGeralHtml = `<span style="background:var(--surface2); color:var(--text2); padding: 4px 10px; border-radius: 99px; font-weight: 600; font-size: 9px; text-transform:uppercase; letter-spacing:0.5px;">Teórico</span>`;
+            }
             const volText = (agg && agg.totalQs > 0) ? `<span style="font-size:10px; color:var(--text3);">${agg.correctQs}/${agg.totalQs}</span>` : '';
 
-            // --- ÚLTIMO APROVEITAMENTO (Correção do Bug dos 0%) ---
-            let lastPercVal = null;
+            // --- ÚLTIMO APROVEITAMENTO ---
+            let badgeUltimoHtml = `<span style="color:var(--text3); font-size:12px;">—</span>`;
             if (agg && agg.last5 && agg.last5.length > 0) {
-                // Pega apenas as sessões onde o usuário fez questões (diferente de null)
-                const valid = agg.last5.filter(x => x.perc !== null);
-                if (valid.length > 0) {
-                    lastPercVal = Math.round(valid[valid.length - 1].perc * 100);
+                const ultimaSessao = agg.last5[agg.last5.length - 1]; // Pega sempre o último estudo absoluto
+                if (ultimaSessao.perc !== null) {
+                    const lPerc = Math.round(ultimaSessao.perc * 100);
+                    badgeUltimoHtml = `<span class="rev-badge ${lPerc >= 80 ? 'rb-bom' : lPerc >= 60 ? 'rb-medio' : 'rb-ruim'}" style="font-family: 'DM Mono', monospace; font-size: 12px;">${lPerc}%</span>`;
+                } else {
+                    const tipoText = ultimaSessao.studyType || 'Leitura';
+                    badgeUltimoHtml = `<span style="background:var(--surface2); color:var(--text2); padding: 4px 10px; border-radius: 99px; font-weight: 600; font-size: 9px; text-transform:uppercase; letter-spacing:0.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:85px; display:inline-block;" title="${escHtml(tipoText)}">${escHtml(tipoText)}</span>`;
                 }
             }
-            const badgeUltimoHtml = lastPercVal !== null 
-                ? `<span class="rev-badge ${lastPercVal >= 80 ? 'rb-bom' : lastPercVal >= 60 ? 'rb-medio' : 'rb-ruim'}" style="font-family: 'DM Mono', monospace; font-size: 12px;">${lastPercVal}%</span>` 
-                : `<span style="color:var(--text3); font-size:12px;">—</span>`;
             
             const espacadorInvisivel = (agg && agg.totalQs > 0) ? `<span style="font-size:10px; visibility:hidden;">-</span>` : '';
 
