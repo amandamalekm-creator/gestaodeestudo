@@ -1125,10 +1125,11 @@ function updateAggregates(session){
       state.aggregates.materias[materia].correctQs += ct.correct||0;
     }
 
-    agg.lastStudied = date;
+   agg.lastStudied = date;
 
-    const perc = ct.total ? ct.correct/ct.total : 0;
-    agg.last5.push({date,perc});
+    // Se não fez questões, perc vira NULL (assim o sistema ignora na média)
+    const perc = (!ct.onlyTheory && ct.total > 0) ? (ct.correct / ct.total) : null;
+    agg.last5.push({date, perc});
     if(agg.last5.length>5) agg.last5.shift();
   });
 }
@@ -1177,12 +1178,15 @@ function calcPrioridade(id){
 
 function calcTrend(id){
   const agg = state.aggregates.conteudos[id];
-  if(!agg||agg.last5.length<2) return "→";
+  if(!agg) return "→";
+  // Filtra as sessões que realmente tiveram questões resolvidas
+  const valid = agg.last5.filter(x => x.perc !== null);
+  if(valid.length < 2) return "→";
+  
+  const f = valid[0].perc;
+  const l = valid[valid.length-1].perc;
 
-  const f=agg.last5[0].perc;
-  const l=agg.last5[agg.last5.length-1].perc;
-
-  return l>f?"↑":l<f?"↓":"→";
+  return l > f ? "↑" : l < f ? "↓" : "→";
 }
 
 function getAggTotal() {
@@ -2688,27 +2692,29 @@ function renderRevisao() {
             const agg = state.aggregates.conteudos[ctId];
             const isHidden = ct.hidden || false;
             
-            // --- APROVEITAMENTO GERAL (Cores originais) ---
+            // --- APROVEITAMENTO GERAL ---
             const percVal = (agg && agg.totalQs > 0) ? Math.round((agg.correctQs / agg.totalQs) * 100) : null;
             const badgeGeralHtml = percVal !== null 
                 ? `<span class="rev-badge ${percVal >= 80 ? 'rb-bom' : percVal >= 60 ? 'rb-medio' : 'rb-ruim'}" style="font-family: 'DM Mono', monospace; font-size: 12px;">${percVal}%</span>` 
                 : `<span style="color:var(--text3); font-size:12px;">—</span>`;
             const volText = (agg && agg.totalQs > 0) ? `<span style="font-size:10px; color:var(--text3);">${agg.correctQs}/${agg.totalQs}</span>` : '';
 
-            // --- ÚLTIMO APROVEITAMENTO (Cores originais) ---
+            // --- ÚLTIMO APROVEITAMENTO (Correção do Bug dos 0%) ---
             let lastPercVal = null;
             if (agg && agg.last5 && agg.last5.length > 0) {
-                lastPercVal = Math.round(agg.last5[agg.last5.length - 1].perc * 100);
+                // Pega apenas as sessões onde o usuário fez questões (diferente de null)
+                const valid = agg.last5.filter(x => x.perc !== null);
+                if (valid.length > 0) {
+                    lastPercVal = Math.round(valid[valid.length - 1].perc * 100);
+                }
             }
             const badgeUltimoHtml = lastPercVal !== null 
                 ? `<span class="rev-badge ${lastPercVal >= 80 ? 'rb-bom' : lastPercVal >= 60 ? 'rb-medio' : 'rb-ruim'}" style="font-family: 'DM Mono', monospace; font-size: 12px;">${lastPercVal}%</span>` 
                 : `<span style="color:var(--text3); font-size:12px;">—</span>`;
             
-            // --- O SEGREDO DO ALINHAMENTO: Espaçador Invisível ---
-            // Adiciona uma linha "falsa" embaixo da tag Último só quando houver volume de questões na tag Geral
             const espacadorInvisivel = (agg && agg.totalQs > 0) ? `<span style="font-size:10px; visibility:hidden;">-</span>` : '';
 
-            // --- TENDÊNCIA (Seta Vermelha para queda, Verde para subida) ---
+            // --- TENDÊNCIA ---
             const trendStr = calcTrend(ctId);
             const trendIcon = trendStr === '↑' ? '<span style="color:var(--green); font-size:16px; font-weight:bold;">↑</span>' : (trendStr === '↓' ? '<span style="color:var(--danger); font-size:16px; font-weight:bold;">↓</span>' : '<span style="color:var(--text3); font-size:16px; font-weight:bold;">→</span>');
 
@@ -2726,6 +2732,12 @@ function renderRevisao() {
             const jurisDone = ct.jurisDone || false;
             const jurisDate = ct.jurisDate ? new Date(ct.jurisDate).toLocaleDateString('pt-BR') : '—';
 
+            // --- SISTEMA DE OBSERVAÇÕES INLINE ---
+            const notaAtual = ct.nota || '';
+            const notaHtml = notaAtual 
+                ? `<div style="font-size:11px; color:var(--text3); margin-top:2px; line-height:1.3; cursor:pointer; max-width: 250px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" onclick="editNotaRev(${revCurrentMateriaIndex}, ${ctIdx})" title="Editar observação: ${escHtml(notaAtual)}">📝 <span style="font-style:italic;">${escHtml(notaAtual)}</span></div>`
+                : `<div style="font-size:10px; color:var(--text3); opacity:0.4; margin-top:2px; cursor:pointer;" onclick="editNotaRev(${revCurrentMateriaIndex}, ${ctIdx})">+ add observação</div>`;
+
             return `
                 <div class="rev-row ${isHidden ? 'is-hidden' : ''}" 
                      draggable="true" data-ctindex="${ctIdx}" 
@@ -2733,9 +2745,12 @@ function renderRevisao() {
                      ondragleave="sairAreaSoltarCt(event)" ondrop="soltarCt(event)" 
                      ondragend="finalizarArrastoCt(event)" title="Clique e segure para reordenar" style="cursor: grab;">
                     
-                    <div class="rev-col-name" style="gap:8px; display:flex; align-items:center;">
-                        <button class="btn-rev-toggle" onclick="toggleRevContent(${revCurrentMateriaIndex}, ${ctIdx})">👁️</button>
-                        <span style="font-weight: 500; color:var(--text);">${escHtml(ctName)}</span>
+                    <div class="rev-col-name" style="gap:8px; display:flex; align-items:flex-start; min-width:180px;">
+                        <button class="btn-rev-toggle" style="margin-top:2px;" onclick="toggleRevContent(${revCurrentMateriaIndex}, ${ctIdx})">👁️</button>
+                        <div style="display:flex; flex-direction:column; overflow:hidden;">
+                            <span style="font-weight: 500; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${escHtml(ctName)}">${escHtml(ctName)}</span>
+                            ${notaHtml}
+                        </div>
                     </div>
 
                     <div class="rev-col-ultimo">
@@ -2768,6 +2783,25 @@ function renderRevisao() {
                     </div>
                 </div>`;
         }).join('');
+    }
+}
+
+async function editNotaRev(mi, ci) {
+    const mat = state.materias[mi];
+    const ct = mat.conteudos[ci];
+    const nomeAtual = ct.name || ct;
+    const notaAtual = ct.nota || "";
+    
+    const novaNota = prompt(`📝 Observação para "${nomeAtual}":`, notaAtual);
+    
+    if (novaNota !== null) {
+        if (typeof mat.conteudos[ci] === 'string') {
+            mat.conteudos[ci] = { id: nomeAtual, name: nomeAtual, nota: novaNota.trim() };
+        } else {
+            mat.conteudos[ci].nota = novaNota.trim();
+        }
+        await saveMateriasDB();
+        renderRevisao();
     }
 }
   
@@ -3161,7 +3195,7 @@ function renderAnalytics() {
             const agg = state.aggregates.conteudos[id];
             const info = nomeMap[id];
             
-            const dataPoints = agg.last5.map((entry, index) => ({
+           const dataPoints = agg.last5.filter(e => e.perc !== null).map((entry, index) => ({
                 x: `Sessão ${index + 1}`,
                 y: Math.round(entry.perc * 100),
                 dataOriginal: new Date(entry.date).toLocaleDateString('pt-BR')
