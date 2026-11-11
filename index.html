@@ -295,7 +295,15 @@ input[readonly] { background:var(--surface2); color:var(--text2); cursor:default
     text-transform: uppercase; 
 }
 /* Colunas (Aplicado no HTML) */
-.rev-col-name { flex: 1; max-width: 550px; /* Ajuste este valor em pixels ou porcentagem caso queira alinhar exatamente à sua linha vermelha */ white-space: normal !important; word-wrap: break-word; overflow-wrap: break-word; }
+.rev-col-name {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    min-width: 150px;
+    white-space: normal !important;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
 .rev-col-ultimo { width: 90px; min-width: 90px; flex-shrink: 0; display: flex; justify-content: center; text-align: center; }
 .rev-col-geral { width: 90px; min-width: 90px; flex-shrink: 0; display: flex; justify-content: center; text-align: center; }
 .rev-col-tendencia { width: 80px; min-width: 80px; flex-shrink: 0; display: flex; justify-content: center; text-align: center; }
